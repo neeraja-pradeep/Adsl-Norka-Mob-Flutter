@@ -18,12 +18,12 @@ class Homepage extends StatefulWidget {
   @override
   State<Homepage> createState() => _HomepageState();
 
-  // Static method to reset shimmer state (call this on logout)
+  // Static method to reset shimmer state (call logout)
   static void resetShimmerState() {
     _HomepageState.resetShimmerState();
   }
 
-  // Static method to reset SharedPreferences shimmer flag (call this on logout)
+  // Static method to reset SharedPreferences shimmer flag
   static Future<void> resetShimmerPreferences() async {
     await _HomepageState.resetShimmerPreferences();
   }
