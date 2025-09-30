@@ -1,0 +1,410 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
+import 'package:flutter/services.dart';
+import '../../utils/constants.dart';
+import '../../widgets/app_text.dart';
+import 'customer_support_page.dart';
+
+class TransactionDetailsPage extends StatefulWidget {
+  final Map<String, dynamic> transaction;
+
+  const TransactionDetailsPage({super.key, required this.transaction});
+
+  @override
+  State<TransactionDetailsPage> createState() => _TransactionDetailsPageState();
+}
+
+class _TransactionDetailsPageState extends State<TransactionDetailsPage> {
+  static const String policyNumber = '763300/25-26/NORKACARE/001';
+
+  @override
+  Widget build(BuildContext context) {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+
+    // Parse the transaction data
+    final rzpPayload =
+        widget.transaction['rzp_payload'] as Map<String, dynamic>? ?? {};
+    final status = rzpPayload['status'] as String? ?? 'unknown';
+    final amount = widget.transaction['amount'] as int? ?? 0;
+    final method = widget.transaction['method'] as String? ?? 'unknown';
+    final createdAt = widget.transaction['created_at'] as String? ?? '';
+    final transactionId = widget.transaction['payment_id']?.toString() ?? '';
+    final pgTransactionId =
+        widget.transaction['rzp_payload']?['id']?.toString() ?? '';
+
+    // Check if this is a failed payment
+    final isFailedPayment = rzpPayload.isEmpty || status != 'captured';
+
+    // Format amount to Indian currency
+    final formattedAmount = '₹${(amount / 100).toStringAsFixed(2)}';
+
+    // Format date and time in Indian timezone (IST)
+    String formattedDate = '';
+    if (createdAt.isNotEmpty) {
+      try {
+        final dateTime = DateTime.parse(createdAt);
+        final indianTime = dateTime.toUtc().add(
+          const Duration(hours: 5, minutes: 30),
+        );
+        formattedDate =
+            '${indianTime.day.toString().padLeft(2, '0')} ${_getMonthName(indianTime.month)}, ${indianTime.hour.toString().padLeft(2, '0')}:${indianTime.minute.toString().padLeft(2, '0')} ${indianTime.hour >= 12 ? 'PM' : 'AM'}';
+      } catch (e) {
+        formattedDate = 'Invalid Date';
+      }
+    }
+
+    // Format payment method
+    final formattedMethod = method.toUpperCase();
+
+    return Scaffold(
+      backgroundColor: isDarkMode
+          ? AppConstants.darkBackgroundColor
+          : AppConstants.whiteBackgroundColor,
+      appBar: AppBar(
+        backgroundColor: AppConstants.primaryColor,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        surfaceTintColor: Colors.transparent,
+        leading: IconButton(
+          icon: Icon(
+            Theme.of(context).platform == TargetPlatform.iOS
+                ? CupertinoIcons.back
+                : Icons.arrow_back,
+            color: Colors.white,
+          ),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        title: const AppText(
+          text: 'Payment Details',
+          size: 20,
+          weight: FontWeight.w600,
+          textColor: Colors.white,
+        ),
+        centerTitle: true,
+        systemOverlayStyle: SystemUiOverlayStyle.light,
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: isDarkMode
+                ? AppConstants.boxBlackColor
+                : AppConstants.whiteColor,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: isDarkMode
+                    ? Colors.black.withOpacity(0.3)
+                    : Colors.grey.withOpacity(0.1),
+                spreadRadius: 1,
+                blurRadius: 10,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Total Amount Section
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      AppText(
+                        text: 'Total Amount',
+                        size: 14,
+                        weight: FontWeight.w500,
+                        textColor: AppConstants.greyColor,
+                      ),
+                      const SizedBox(height: 4),
+                      AppText(
+                        text: formattedAmount,
+                        size: 24,
+                        weight: FontWeight.w700,
+                        textColor: isDarkMode
+                            ? AppConstants.whiteColor
+                            : AppConstants.blackColor,
+                      ),
+                    ],
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: isFailedPayment
+                          ? AppConstants.redColor
+                          : AppConstants.greenColor,
+                      borderRadius: BorderRadius.circular(5),
+                    ),
+                    child: AppText(
+                      text: isFailedPayment
+                          ? 'Payment Failed'
+                          : 'Payment Successful',
+                      size: 10,
+                      weight: FontWeight.w500,
+                      textColor: AppConstants.whiteColor,
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 24),
+
+              // Service Details Section
+              Row(
+                children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: AppConstants.primaryColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(
+                      Icons.payment,
+                      color: AppConstants.primaryColor,
+                      size: 20,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        AppText(
+                          text: 'Enrollment Fee',
+                          size: 16,
+                          weight: FontWeight.w600,
+                          textColor: isDarkMode
+                              ? AppConstants.whiteColor
+                              : AppConstants.blackColor,
+                        ),
+                        const SizedBox(height: 2),
+                        AppText(
+                          text: 'Norka Care Enrollment Payment',
+                          size: 14,
+                          weight: FontWeight.w400,
+                          textColor: AppConstants.greyColor,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 24),
+
+              // Payment Status Section
+              Row(
+                children: [
+                  Container(
+                    width: 24,
+                    height: 24,
+                    decoration: BoxDecoration(
+                      color: isFailedPayment
+                          ? AppConstants.redColor
+                          : AppConstants.greenColor,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      isFailedPayment ? Icons.close : Icons.check,
+                      color: AppConstants.whiteColor,
+                      size: 16,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        AppText(
+                          text: isFailedPayment
+                              ? 'Payment To Norka Care Failed'
+                              : 'Payment To Norka Care Successful',
+                          size: 16,
+                          weight: FontWeight.w600,
+                          textColor: isDarkMode
+                              ? AppConstants.whiteColor
+                              : AppConstants.blackColor,
+                        ),
+                        const SizedBox(height: 2),
+                        AppText(
+                          text: formattedDate,
+                          size: 14,
+                          weight: FontWeight.w400,
+                          textColor: AppConstants.greyColor,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 24),
+
+              // Transaction IDs Section
+              _buildTransactionIdRow('Payment ID', transactionId, isDarkMode),
+
+              const SizedBox(height: 16),
+
+              _buildTransactionIdRow('Policy Number', policyNumber, isDarkMode),
+
+              const SizedBox(height: 32),
+
+              // Contact Support Section
+              GestureDetector(
+                onTap: () {
+                  // Navigate to customer support
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const CustomerSupportPage(),
+                    ),
+                  );
+                },
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: AppConstants.primaryColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: AppConstants.primaryColor.withOpacity(0.2),
+                      width: 1,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: AppConstants.primaryColor,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          Icons.help_outline,
+                          color: AppConstants.whiteColor,
+                          size: 20,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            AppText(
+                              text: 'Contact Customer Support',
+                              size: 16,
+                              weight: FontWeight.w600,
+                              textColor: isDarkMode
+                                  ? AppConstants.whiteColor
+                                  : AppConstants.blackColor,
+                            ),
+                            const SizedBox(height: 2),
+                            Row(
+                              children: [
+                                AppText(
+                                  text: '24X7',
+                                  size: 14,
+                                  weight: FontWeight.w500,
+                                  textColor: AppConstants.primaryColor,
+                                ),
+                                const SizedBox(width: 4),
+                                AppText(
+                                  text: 'Available',
+                                  size: 14,
+                                  weight: FontWeight.w400,
+                                  textColor: AppConstants.primaryColor,
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      Icon(
+                        Icons.arrow_forward_ios,
+                        color: AppConstants.greyColor,
+                        size: 16,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTransactionIdRow(String label, String value, bool isDarkMode) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        SizedBox(
+          width: 120,
+          child: AppText(
+            text: label,
+            size: 14,
+            weight: FontWeight.w500,
+            textColor: AppConstants.greyColor,
+          ),
+        ),
+        Expanded(
+          child: Row(
+            children: [
+              Expanded(
+                child: AppText(
+                  text: value,
+                  size: 14,
+                  weight: FontWeight.w400,
+                  textColor: isDarkMode
+                      ? AppConstants.whiteColor
+                      : AppConstants.blackColor,
+                ),
+              ),
+              if (value != 'N/A' && value != policyNumber)
+                GestureDetector(
+                  onTap: () {
+                    Clipboard.setData(ClipboardData(text: value));
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    child: Icon(
+                      Icons.copy,
+                      color: AppConstants.greyColor,
+                      size: 16,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  String _getMonthName(int month) {
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+    return months[month - 1];
+  }
+}
