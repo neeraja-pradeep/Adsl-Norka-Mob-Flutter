@@ -112,7 +112,7 @@ class _MyPoliciesPageState extends State<MyPoliciesPage> {
     final norkaProvider = Provider.of<NorkaProvider>(context, listen: false);
 
     // Get enrollment number from API response
-    String enrollmentNumber = 'EN00000000'; // Default fallback
+    String enrollmentNumber = 'EN12345678'; // Default fallback
     if (verificationProvider.enrollmentDetails.isNotEmpty) {
       final enrollmentData = verificationProvider.enrollmentDetails['data'];
       if (enrollmentData != null &&

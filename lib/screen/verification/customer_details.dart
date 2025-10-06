@@ -3,6 +3,7 @@ import 'package:norkacare_app/utils/constants.dart';
 import 'package:norkacare_app/widgets/custom_button.dart';
 import 'package:norkacare_app/widgets/app_text.dart';
 import 'package:norkacare_app/screen/verification/add_family_members.dart';
+import 'package:norkacare_app/navigation/app_navigation_bar.dart';
 import 'package:provider/provider.dart';
 import 'package:norkacare_app/provider/norka_provider.dart';
 
@@ -197,12 +198,24 @@ class _CustomerDetailsState extends State<CustomerDetails>
             : widget
                   .customerId; // Fallback to widget customerId if provider doesn't have it
 
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => AddFamilyMembers(customerId: norkaId),
-          ),
-        );
+        // Check if this is the test Norka ID for Google Play Store
+        if (norkaId == "M12345678") {
+          // Navigate directly to dashboard for test account
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) => AppNavigationBar(),
+            ),
+          );
+        } else {
+          // Normal flow - go to family members for real accounts
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => AddFamilyMembers(customerId: norkaId),
+            ),
+          );
+        }
       }
     } catch (e) {
       // Handle error

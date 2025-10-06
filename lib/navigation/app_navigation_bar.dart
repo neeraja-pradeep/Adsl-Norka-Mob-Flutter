@@ -25,8 +25,8 @@ class _AppNavigationBarState extends State<AppNavigationBar>
   final List<Widget> _pages = [
     Homepage(),
     MyPoliciesPage(),
-    MyClaimsPage(),
-    // ComingsoonClaim(),
+    // MyClaimsPage(),
+     ComingsoonClaim(),
     DocumentsPage(),
     ProfilePage(),
   ];

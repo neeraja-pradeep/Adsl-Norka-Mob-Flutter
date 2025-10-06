@@ -8,13 +8,27 @@ class OtpVerificationService {
       final requestData = {"nrk_id_no": nrkId};
 
       print("Sending OTP request data: $requestData");
-      var dio = await DioHelper.getInstance();
-      var response = await dio.post(
-        '$FamilyBaseURL/nrk-verification/verify/',
-        data: requestData,
-      );
-      print("OTP sent response: ${response.data}");
-      return response.data;
+      
+      // Check if this is the test Norka ID for Google Play Store
+      if (nrkId == "M12345678") {
+        print("Using dummy OTP API for test Norka ID: $nrkId");
+        var dio = await DioHelper.getInstance();
+        var response = await dio.post(
+          'https://norkaapi.tqdemo.website/api/nrk-verification/verify-dummy/',
+          data: requestData,
+        );
+        print("OTP sent response (dummy): ${response.data}");
+        return response.data;
+      } else {
+        // Use original API for real Norka IDs
+        var dio = await DioHelper.getInstance();
+        var response = await dio.post(
+          '$FamilyBaseURL/nrk-verification/verify/',
+          data: requestData,
+        );
+        print("OTP sent response: ${response.data}");
+        return response.data;
+      }
     } catch (e) {
       print("Error sending OTP: $e");
       rethrow;
@@ -28,16 +42,31 @@ class OtpVerificationService {
     required String otp,
   }) async {
     try {
-      final requestData = {"nrk_id": nrkId, "email": email, "otp": otp};
-
-      print("Verifying OTP request data: $requestData");
-      var dio = await DioHelper.getInstance();
-      var response = await dio.post(
-        '$FamilyBaseURL/nrk-verification/verify-otp/',
-        data: requestData,
-      );
-      print("OTP verification response: ${response.data}");
-      return response.data;
+      print("Verifying OTP request data for NRK ID: $nrkId");
+      
+      // Check if this is the test Norka ID for Google Play Store
+      if (nrkId == "M12345678") {
+        print("Using dummy OTP verification API for test Norka ID: $nrkId");
+        // Use nrk_id_no for dummy API
+        final requestData = {"nrk_id_no": nrkId, "email": email, "otp": otp};
+        var dio = await DioHelper.getInstance();
+        var response = await dio.post(
+          'https://norkaapi.tqdemo.website/api/nrk-verification/verify-otp-dummy/',
+          data: requestData,
+        );
+        print("OTP verification response (dummy): ${response.data}");
+        return response.data;
+      } else {
+        // Use original API for real Norka IDs
+        final requestData = {"nrk_id": nrkId, "email": email, "otp": otp};
+        var dio = await DioHelper.getInstance();
+        var response = await dio.post(
+          '$FamilyBaseURL/nrk-verification/verify-otp/',
+          data: requestData,
+        );
+        print("OTP verification response: ${response.data}");
+        return response.data;
+      }
     } catch (e) {
       print("Error verifying OTP: $e");
       rethrow;
@@ -50,16 +79,31 @@ class OtpVerificationService {
     required String email,
   }) async {
     try {
-      final requestData = {"nrk_id": nrkId, "email": email};
-
-      print("Resending OTP request data: $requestData");
-      var dio = await DioHelper.getInstance();
-      var response = await dio.post(
-        '$FamilyBaseURL/nrk-verification/resend-otp/',
-        data: requestData,
-      );
-      print("OTP resend response: ${response.data}");
-      return response.data;
+      print("Resending OTP request data for NRK ID: $nrkId");
+      
+      // Check if this is the test Norka ID for Google Play Store
+      if (nrkId == "M12345678") {
+        print("Using dummy OTP resend API for test Norka ID: $nrkId");
+        // Use nrk_id_no for dummy API (same as send OTP)
+        final requestData = {"nrk_id_no": nrkId};
+        var dio = await DioHelper.getInstance();
+        var response = await dio.post(
+          'https://norkaapi.tqdemo.website/api/nrk-verification/verify-dummy/',
+          data: requestData,
+        );
+        print("OTP resend response (dummy): ${response.data}");
+        return response.data;
+      } else {
+        // Use original API for real Norka IDs
+        final requestData = {"nrk_id": nrkId, "email": email};
+        var dio = await DioHelper.getInstance();
+        var response = await dio.post(
+          '$FamilyBaseURL/nrk-verification/resend-otp/',
+          data: requestData,
+        );
+        print("OTP resend response: ${response.data}");
+        return response.data;
+      }
     } catch (e) {
       print("Error resending OTP: $e");
       rethrow;

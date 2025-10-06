@@ -2,6 +2,7 @@ import 'package:norkacare_app/utils/constants.dart';
 import 'package:norkacare_app/widgets/app_text.dart';
 import 'package:norkacare_app/widgets/custom_button.dart';
 import 'package:flutter/material.dart';
+import 'package:norkacare_app/screen/insurence/file_claim_page.dart';
 
 class MyClaimsPage extends StatefulWidget {
   const MyClaimsPage({super.key});
@@ -57,42 +58,42 @@ class _MyClaimsPageState extends State<MyClaimsPage> {
         },
       ],
     },
-    {
-      'claimNumber': 'CLM-2023-004',
-      'policyType': 'Health Insurance',
-      'policyNumber': 'POL-2023-001',
-      'claimAmount': '₹25,000',
-      'approvedAmount': '₹25,000',
-      'status': 'Completed',
-      'date': '15/12/2023',
-      'description': 'Dental treatment',
-      'hospital': 'Dental Care Clinic, Calicut',
-      'doctor': 'Dr. Michael Chen',
-      'treatmentDate': '12/12/2023',
-      'documents': ['Dental Bill', 'Treatment Certificate', 'X-Ray Reports'],
-      'timeline': [
-        {
-          'date': '15/12/2023',
-          'status': 'Claim Filed',
-          'description': 'Claim submitted successfully',
-        },
-        {
-          'date': '18/12/2023',
-          'status': 'Under Review',
-          'description': 'Documents verified',
-        },
-        {
-          'date': '20/12/2023',
-          'status': 'Approved',
-          'description': 'Claim approved for ₹25,000',
-        },
-        {
-          'date': '22/12/2023',
-          'status': 'Claim Settled',
-          'description': 'Claim settled successfully',
-        },
-      ],
-    },
+    // {
+    //   'claimNumber': 'CLM-2023-004',
+    //   'policyType': 'Health Insurance',
+    //   'policyNumber': 'POL-2023-001',
+    //   'claimAmount': '₹25,000',
+    //   'approvedAmount': '₹25,000',
+    //   'status': 'Completed',
+    //   'date': '15/12/2023',
+    //   'description': 'Dental treatment',
+    //   'hospital': 'Dental Care Clinic, Calicut',
+    //   'doctor': 'Dr. Michael Chen',
+    //   'treatmentDate': '12/12/2023',
+    //   'documents': ['Dental Bill', 'Treatment Certificate', 'X-Ray Reports'],
+    //   'timeline': [
+    //     {
+    //       'date': '15/12/2023',
+    //       'status': 'Claim Filed',
+    //       'description': 'Claim submitted successfully',
+    //     },
+    //     {
+    //       'date': '18/12/2023',
+    //       'status': 'Under Review',
+    //       'description': 'Documents verified',
+    //     },
+    //     {
+    //       'date': '20/12/2023',
+    //       'status': 'Approved',
+    //       'description': 'Claim approved for ₹25,000',
+    //     },
+    //     {
+    //       'date': '22/12/2023',
+    //       'status': 'Claim Settled',
+    //       'description': 'Claim settled successfully',
+    //     },
+    //   ],
+    // },
   ];
 
   List<Map<String, dynamic>> get filteredClaims {
@@ -144,6 +145,19 @@ class _MyClaimsPageState extends State<MyClaimsPage> {
           textColor: AppConstants.whiteColor,
         ),
         centerTitle: true,
+        actions: [
+          IconButton(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const FileClaimPage(),
+                ),
+              );
+            },
+            icon: const Icon(Icons.add, color: AppConstants.whiteColor,size: 30),
+          ),
+        ],
       ),
       body: SingleChildScrollView(
         // physics: const BouncingScrollPhysics(),
@@ -448,10 +462,10 @@ class _MyClaimsPageState extends State<MyClaimsPage> {
               children: [
                 Expanded(
                   child: CustomButton(
-                    text: 'File Claim',
+                    text: 'View Details',
                     onPressed: () => 
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('File Claim'))),
-                    // _showClaimDetails(claim),
+                    // ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('File Claim'))),
+                    _showClaimDetails(claim),
                     color: AppConstants.primaryColor,
                     textColor: AppConstants.whiteColor,
                     height: 40,
