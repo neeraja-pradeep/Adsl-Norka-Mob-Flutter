@@ -816,7 +816,8 @@ class _PaymentSuccessPageState extends State<PaymentSuccessPage>
 
       // Call the Vidal E-Card API
       await verificationProvider.vidalEnrollmentEcard({
-        'employee_code': employeeCode,
+        'employeeCode': employeeCode,
+        // 'employee_code': employeeCode,
       });
 
       Navigator.of(context).pop(); // Close loading dialog

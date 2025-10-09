@@ -162,7 +162,7 @@ class VerificationService {
     try {
       var dio = await DioHelper.getInstance();
       var response = await dio.post(
-        '$VidalBaseURL/vidal/enrollment/create',
+        '$VidalBaseURL/enrollment/create',
         data: data,
       );
       print("user logged in : ${response.data}");
@@ -187,7 +187,7 @@ class VerificationService {
     try {
       var dio = await DioHelper.getInstance();
       var response = await dio.post(
-        '$VidalBaseURL/vidal/enrollment/validate',
+        '$VidalBaseURL/enrollment/validate',
         data: data,
       );
       print("user logged in : ${response.data}");
@@ -201,7 +201,7 @@ class VerificationService {
     try {
       var dio = await DioHelper.getInstance();
       var response = await dio.post(
-        '$VidalBaseURL/vidal/claims/ecard',
+        '$VidalBaseURL/api/claims/ecard',
         data: data,
       );
       print("user logged in : ${response.data}");
@@ -231,6 +231,126 @@ class VerificationService {
       print("get premium amount in : ${response.data}");
       return response.data;
     } catch (e) {
+      rethrow;
+    }
+  }
+
+  // New unified API for dashboard - gets all user data in one call
+  static Future getUserDetails(String nrkId) async {
+    try {
+      print("=== GET USER DETAILS (UNIFIED API) ===");
+      print("NRK ID: $nrkId");
+      print("API URL: $FamilyBaseURL/nrk-otp/user/details/$nrkId/");
+      
+      var dio = await DioHelper.getInstance();
+      var response = await dio.get(
+        '$FamilyBaseURL/nrk-otp/user/details/$nrkId/',
+      );
+      
+      print("User details response: ${response.data}");
+      return response.data;
+    } catch (e) {
+      print("Error getting user details: $e");
+      rethrow;
+    }
+  }
+
+  // Update primary email
+  static Future updatePrimaryEmail(String nrkId, String primaryEmail) async {
+    try {
+      print("=== UPDATE PRIMARY EMAIL ===");
+      print("NRK ID: $nrkId");
+      print("Primary Email: $primaryEmail");
+      print("API URL: $FamilyBaseURL/nrk-otp/user/update/primary-email/");
+      
+      var dio = await DioHelper.getInstance();
+      var response = await dio.put(
+        '$FamilyBaseURL/nrk-otp/user/update/primary-email/',
+        data: {
+          'nrk_id_no': nrkId,
+          'primary_email': primaryEmail,
+        },
+      );
+      
+      print("Update primary email response: ${response.data}");
+      return response.data;
+    } catch (e) {
+      print("Error updating primary email: $e");
+      rethrow;
+    }
+  }
+
+  // Update primary mobile
+  static Future updatePrimaryMobile(String nrkId, String primaryMobile) async {
+    try {
+      print("=== UPDATE PRIMARY MOBILE ===");
+      print("NRK ID: $nrkId");
+      print("Primary Mobile: $primaryMobile");
+      print("API URL: $FamilyBaseURL/nrk-otp/user/update/primary-mobile/");
+      
+      var dio = await DioHelper.getInstance();
+      var response = await dio.put(
+        '$FamilyBaseURL/nrk-otp/user/update/primary-mobile/',
+        data: {
+          'nrk_id_no': nrkId,
+          'primary_mobile': primaryMobile,
+        },
+      );
+      
+      print("Update primary mobile response: ${response.data}");
+      return response.data;
+    } catch (e) {
+      print("Error updating primary mobile: $e");
+      rethrow;
+    }
+  }
+
+  // Update secondary email
+  static Future updateSecondaryEmail(String nrkId, String secondaryEmail) async {
+    try {
+      print("=== UPDATE SECONDARY EMAIL ===");
+      print("NRK ID: $nrkId");
+      print("Secondary Email: $secondaryEmail");
+      print("API URL: $FamilyBaseURL/nrk-otp/user/update/secondary-email/");
+      
+      var dio = await DioHelper.getInstance();
+      var response = await dio.put(
+        '$FamilyBaseURL/nrk-otp/user/update/secondary-email/',
+        data: {
+          'nrk_id_no': nrkId,
+          'secondary_email': secondaryEmail,
+        },
+      );
+      
+      print("Update secondary email response: ${response.data}");
+      return response.data;
+    } catch (e) {
+      print("Error updating secondary email: $e");
+      rethrow;
+    }
+  }
+
+  // Update secondary mobile
+  static Future updateSecondaryMobile(String nrkId, String secondaryMobile) async {
+    try {
+      print("=== UPDATE SECONDARY MOBILE ===");
+      print("NRK ID: $nrkId");
+      print("Secondary Mobile: $secondaryMobile");
+      print("API URL: $FamilyBaseURL/nrk-otp/user/update/secondary-mobile/");
+      
+      var dio = await DioHelper.getInstance();
+      var response = await dio.put(
+        '$FamilyBaseURL/nrk-otp/user/update/secondary-mobile/',
+        data: {
+          'nrk_id_no': nrkId,
+          'secondary_mobile': secondaryMobile,
+        },
+      );
+      
+      print("Update secondary mobile response: ${response.data}");
+      return response.data;
+    } catch (e) {
+      print("Error updating secondary mobile: $e");
       rethrow;
     }
   }

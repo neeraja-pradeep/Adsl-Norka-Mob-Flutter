@@ -38,42 +38,25 @@ class _ProfilePageState extends State<ProfilePage> {
   @override
   void initState() {
     super.initState();
-    // Use post-frame callback to avoid setState during build
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadFamilyData();
-    });
-  }
-
-  void _loadFamilyData() async {
-    final norkaProvider = Provider.of<NorkaProvider>(context, listen: false);
-    final verificationProvider = Provider.of<VerificationProvider>(
-      context,
-      listen: false,
-    );
-
-    if (norkaProvider.norkaId.isNotEmpty) {
-      // Only show loading if we haven't loaded before
-      if (!verificationProvider.hasFamilyMembersLoadedOnce) {
-        await verificationProvider.getFamilyMembersWithOfflineFallback(norkaProvider.norkaId);
-      }
-    }
+    // No need to call API here - data is already loaded in dashboard
   }
 
   String _extractName(BuildContext context) {
-    // Get data from OTP verification provider first, then fallback to NORKA provider
+    // Get data from verification provider (unified API response)
+    final verificationProvider = Provider.of<VerificationProvider>(context, listen: false);
     final norkaProvider = Provider.of<NorkaProvider>(context, listen: false);
-    final otpVerificationProvider = Provider.of<OtpVerificationProvider>(
-      context,
-      listen: false,
-    );
     
     String name = 'Not available'; // Default fallback
 
-    // Try to get from verified customer data first, then fallback to NORKA provider
-    final verifiedCustomerData = otpVerificationProvider.getVerifiedCustomerData();
-    if (verifiedCustomerData != null && verifiedCustomerData['name'] != null) {
-      name = verifiedCustomerData['name'];
-    } else if (norkaProvider.response != null &&
+    // Try to get from unified API response first (family_info from dashboard API)
+    if (verificationProvider.familyMembersDetails.isNotEmpty) {
+      final familyData = verificationProvider.familyMembersDetails;
+      if (familyData['nrk_name'] != null) {
+        name = familyData['nrk_name'];
+      }
+    }
+    // Fallback to NORKA provider if unified API data not available
+    else if (norkaProvider.response != null &&
         norkaProvider.response!['name'] != null) {
       name = norkaProvider.response!['name'];
     }
@@ -392,7 +375,7 @@ class _ProfilePageState extends State<ProfilePage> {
           _buildDivider(),
 
           // Dark Theme Toggle
-          // _buildThemeToggleTile(),
+          _buildThemeToggleTile(),
         ],
       ),
     );
@@ -770,7 +753,7 @@ class _ProfilePageState extends State<ProfilePage> {
       // Clear all data from providers including SharedPreferences
       debugPrint("=== CLEARING ALL PROVIDER DATA ===");
       await norkaProvider.clearAllData();
-      verificationProvider.clearData();
+      await verificationProvider.clearAllData();
       hospitalProvider.clearData();
       otpVerificationProvider.clearData();
       debugPrint("✅ All provider data cleared successfully");

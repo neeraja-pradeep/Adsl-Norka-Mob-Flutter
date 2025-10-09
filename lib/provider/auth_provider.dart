@@ -71,6 +71,7 @@ class AuthProvider extends ChangeNotifier {
     await prefs.remove('dates_details_nrk_id');
     await prefs.remove('user_verification_data');
     await prefs.remove('otp_verification_data');
+    await prefs.remove('unified_api_response');
 
     // Reset shimmer manager
     ShimmerManager.resetShimmerState();

@@ -9,11 +9,58 @@ class VerificationProvider extends ChangeNotifier {
   String _errorMessage = '';
   Map<String, dynamic>? _response;
   Map<String, dynamic>? _verificationResponse;
+  Map<String, dynamic>? _unifiedApiResponse;
 
   bool get isLoading => _isLoading;
   String get errorMessage => _errorMessage;
   Map<String, dynamic>? get response => _response;
   Map<String, dynamic>? get verificationResponse => _verificationResponse;
+  Map<String, dynamic>? getUnifiedApiResponse() => _unifiedApiResponse;
+
+  // Load unified API response from SharedPreferences
+  Future<void> loadUnifiedApiResponseFromPrefs() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final responseJson = prefs.getString('unified_api_response');
+      if (responseJson != null) {
+        _unifiedApiResponse = jsonDecode(responseJson);
+        debugPrint("Unified API response loaded from SharedPreferences");
+        
+        // Extract and set individual data pieces from the loaded response
+        if (_unifiedApiResponse != null && _unifiedApiResponse!['success'] == true && _unifiedApiResponse!['user_details'] != null) {
+          final userDetails = _unifiedApiResponse!['user_details'];
+          
+          // Extract family info
+          if (userDetails['family_info'] != null) {
+            _familyMembersDetails = userDetails['family_info'];
+            _hasFamilyMembersLoadedOnce = true;
+            debugPrint('Family info loaded from SharedPreferences');
+          }
+          
+          // Extract enrollment info
+          if (userDetails['enrollment_info'] != null) {
+            _enrollmentDetails = userDetails['enrollment_info'];
+            _hasEnrollmentDetailsLoadedOnce = true;
+            debugPrint('Enrollment info loaded from SharedPreferences');
+          }
+          
+          // Extract payment info
+          if (userDetails['razorpay_payments'] != null) {
+            _paymentHistory = {
+              'payments': userDetails['razorpay_payments'],
+              'total_payments_count': userDetails['total_payments_count'],
+              'total_paid_amount': userDetails['total_paid_amount'],
+              'last_payment_date': userDetails['last_payment_date'],
+            };
+            _hasPaymentHistoryLoadedOnce = true;
+            debugPrint('Payment info loaded from SharedPreferences');
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint("Error loading unified API response: $e");
+    }
+  }
 
   void _setLoading(bool value) {
     _isLoading = value;
@@ -51,6 +98,14 @@ class VerificationProvider extends ChangeNotifier {
     await _clearStoredEnrollmentData();
     await _clearStoredPaymentData();
     await _clearStoredDatesData();
+    await _clearStoredUnifiedApiResponse();
+    
+    // Reset loading flags to ensure clean state
+    _hasFamilyMembersLoadedOnce = false;
+    _hasEnrollmentDetailsLoadedOnce = false;
+    _hasPaymentHistoryLoadedOnce = false;
+    
+    debugPrint("✅ VerificationProvider: All data and flags cleared");
   }
 
   // Clear stored family data from SharedPreferences
@@ -98,6 +153,133 @@ class VerificationProvider extends ChangeNotifier {
       debugPrint("Stored dates data cleared from SharedPreferences");
     } catch (e) {
       debugPrint("Error clearing stored dates data: $e");
+    }
+  }
+
+  // Save unified API response to SharedPreferences
+  Future<void> _saveUnifiedApiResponseToPrefs(Map<String, dynamic> response) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final responseJson = jsonEncode(response);
+      await prefs.setString('unified_api_response', responseJson);
+      debugPrint("Unified API response saved to SharedPreferences");
+    } catch (e) {
+      debugPrint("Error saving unified API response: $e");
+    }
+  }
+
+  // Clear stored unified API response from SharedPreferences
+  Future<void> _clearStoredUnifiedApiResponse() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('unified_api_response');
+      debugPrint("Stored unified API response cleared from SharedPreferences");
+    } catch (e) {
+      debugPrint("Error clearing stored unified API response: $e");
+    }
+  }
+
+  // Update primary email
+  Future<Map<String, dynamic>> updatePrimaryEmail(String nrkId, String primaryEmail) async {
+    try {
+      debugPrint('=== UPDATE PRIMARY EMAIL ===');
+      debugPrint('NRK ID: $nrkId');
+      debugPrint('Primary Email: $primaryEmail');
+      
+      final response = await VerificationService.updatePrimaryEmail(nrkId, primaryEmail);
+      
+      if (response['success'] == true) {
+        // Update local data
+        if (_unifiedApiResponse != null && _unifiedApiResponse!['user_details'] != null) {
+          _unifiedApiResponse!['user_details']['nrk_user']['primary_email'] = primaryEmail;
+          // Save updated response to SharedPreferences
+          await _saveUnifiedApiResponseToPrefs(_unifiedApiResponse!);
+        }
+        debugPrint('Primary email updated successfully');
+      }
+      
+      return response;
+    } catch (e) {
+      debugPrint("Error updating primary email: $e");
+      return {'success': false, 'message': 'Failed to update primary email: $e'};
+    }
+  }
+
+  // Update primary mobile
+  Future<Map<String, dynamic>> updatePrimaryMobile(String nrkId, String primaryMobile) async {
+    try {
+      debugPrint('=== UPDATE PRIMARY MOBILE ===');
+      debugPrint('NRK ID: $nrkId');
+      debugPrint('Primary Mobile: $primaryMobile');
+      
+      final response = await VerificationService.updatePrimaryMobile(nrkId, primaryMobile);
+      
+      if (response['success'] == true) {
+        // Update local data
+        if (_unifiedApiResponse != null && _unifiedApiResponse!['user_details'] != null) {
+          _unifiedApiResponse!['user_details']['nrk_user']['primary_mobile'] = primaryMobile;
+          // Save updated response to SharedPreferences
+          await _saveUnifiedApiResponseToPrefs(_unifiedApiResponse!);
+        }
+        debugPrint('Primary mobile updated successfully');
+      }
+      
+      return response;
+    } catch (e) {
+      debugPrint("Error updating primary mobile: $e");
+      return {'success': false, 'message': 'Failed to update primary mobile: $e'};
+    }
+  }
+
+  // Update secondary email
+  Future<Map<String, dynamic>> updateSecondaryEmail(String nrkId, String secondaryEmail) async {
+    try {
+      debugPrint('=== UPDATE SECONDARY EMAIL ===');
+      debugPrint('NRK ID: $nrkId');
+      debugPrint('Secondary Email: $secondaryEmail');
+      
+      final response = await VerificationService.updateSecondaryEmail(nrkId, secondaryEmail);
+      
+      if (response['success'] == true) {
+        // Update local data
+        if (_unifiedApiResponse != null && _unifiedApiResponse!['user_details'] != null) {
+          _unifiedApiResponse!['user_details']['nrk_user']['secondary_email'] = secondaryEmail;
+          // Save updated response to SharedPreferences
+          await _saveUnifiedApiResponseToPrefs(_unifiedApiResponse!);
+        }
+        debugPrint('Secondary email updated successfully');
+      }
+      
+      return response;
+    } catch (e) {
+      debugPrint("Error updating secondary email: $e");
+      return {'success': false, 'message': 'Failed to update secondary email: $e'};
+    }
+  }
+
+  // Update secondary mobile
+  Future<Map<String, dynamic>> updateSecondaryMobile(String nrkId, String secondaryMobile) async {
+    try {
+      debugPrint('=== UPDATE SECONDARY MOBILE ===');
+      debugPrint('NRK ID: $nrkId');
+      debugPrint('Secondary Mobile: $secondaryMobile');
+      
+      final response = await VerificationService.updateSecondaryMobile(nrkId, secondaryMobile);
+      
+      if (response['success'] == true) {
+        // Update local data
+        if (_unifiedApiResponse != null && _unifiedApiResponse!['user_details'] != null) {
+          _unifiedApiResponse!['user_details']['nrk_user']['secondary_mobile'] = secondaryMobile;
+          // Save updated response to SharedPreferences
+          await _saveUnifiedApiResponseToPrefs(_unifiedApiResponse!);
+        }
+        debugPrint('Secondary mobile updated successfully');
+      }
+      
+      return response;
+    } catch (e) {
+      debugPrint("Error updating secondary mobile: $e");
+      return {'success': false, 'message': 'Failed to update secondary mobile: $e'};
     }
   }
 
@@ -1177,6 +1359,90 @@ class VerificationProvider extends ChangeNotifier {
     } finally {
       _isPaymentHistoryLoading = false;
       debugPrint('=== PAYMENT HISTORY LOADING SET TO FALSE ===');
+      notifyListeners();
+    }
+  }
+
+  // New unified method for dashboard - gets all user data in one API call
+  Future<void> getUserDetailsForDashboard(String nrkId) async {
+    try {
+      debugPrint('=== DASHBOARD: Getting unified user details ===');
+      debugPrint('NRK ID: $nrkId');
+      
+      // Always make fresh API call to ensure we have current user's data
+      // This prevents showing previous user's data after logout/login
+      // Also ensures fresh data after payments or other updates
+      debugPrint('=== DASHBOARD: Making fresh API call for current user ===');
+      
+      _isFamilyMembersDetailsLoading = true;
+      _isEnrollmentDetailsLoading = true;
+      _isPaymentHistoryLoading = true;
+      notifyListeners();
+      
+      final response = await VerificationService.getUserDetails(nrkId);
+      
+      // Store the unified API response for access by other components
+      _unifiedApiResponse = response;
+      
+      // Persist the unified API response to SharedPreferences
+      await _saveUnifiedApiResponseToPrefs(response);
+      
+      debugPrint('=== DASHBOARD: Unified user details response ===');
+      debugPrint('Response: $response');
+      
+      if (response['success'] == true && response['user_details'] != null) {
+        final userDetails = response['user_details'];
+        
+        // Extract family info
+        if (userDetails['family_info'] != null) {
+          _familyMembersDetails = userDetails['family_info'];
+          _hasFamilyMembersLoadedOnce = true;
+          debugPrint('Family info extracted: $_familyMembersDetails');
+        }
+        
+        // Extract enrollment info
+        if (userDetails['enrollment_info'] != null) {
+          _enrollmentDetails = userDetails['enrollment_info'];
+          _hasEnrollmentDetailsLoadedOnce = true;
+          debugPrint('Enrollment info extracted: $_enrollmentDetails');
+        }
+        
+        // Extract payment info
+        if (userDetails['razorpay_payments'] != null) {
+          _paymentHistory = {
+            'payments': userDetails['razorpay_payments'],
+            'total_payments_count': userDetails['total_payments_count'],
+            'total_paid_amount': userDetails['total_paid_amount'],
+            'last_payment_date': userDetails['last_payment_date'],
+          };
+          _hasPaymentHistoryLoadedOnce = true;
+          debugPrint('Payment info extracted: $_paymentHistory');
+        }
+        
+        _errorMessage = '';
+        debugPrint('=== DASHBOARD: All data extracted successfully ===');
+      } else {
+        _errorMessage = response['message'] ?? 'Failed to get user details';
+        debugPrint('Error in unified API response: $_errorMessage');
+      }
+    } catch (e) {
+      _errorMessage = "Failed to get user details: $e";
+      debugPrint("Error getting unified user details: $e");
+      
+      // Try to load cached data from SharedPreferences when API fails
+      debugPrint("=== DASHBOARD: API failed, trying to load cached data ===");
+      await loadUnifiedApiResponseFromPrefs();
+      
+      if (_unifiedApiResponse != null) {
+        debugPrint("=== DASHBOARD: Successfully loaded cached data ===");
+        _errorMessage = ''; // Clear error message since we have cached data
+      } else {
+        debugPrint("=== DASHBOARD: No cached data available ===");
+      }
+    } finally {
+      _isFamilyMembersDetailsLoading = false;
+      _isEnrollmentDetailsLoading = false;
+      _isPaymentHistoryLoading = false;
       notifyListeners();
     }
   }

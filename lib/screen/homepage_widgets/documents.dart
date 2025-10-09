@@ -162,7 +162,8 @@ class Documents extends StatelessWidget {
 
       // Call the Vidal E-Card API
       await verificationProvider.vidalEnrollmentEcard({
-        'employee_code': employeeCode,
+        // 'employee_code': employeeCode,
+        'employeeCode': employeeCode,
       });
 
       Navigator.of(context).pop(); // Close loading dialog

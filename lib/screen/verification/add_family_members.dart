@@ -143,6 +143,55 @@ class _AddFamilyMembersState extends State<AddFamilyMembers>
     return dob;
   }
 
+  // Calculate age from date of birth
+  int _calculateAge(String dob) {
+    if (dob.isEmpty) return 0;
+    
+    try {
+      List<String> parts;
+      if (dob.contains('/')) {
+        parts = dob.split('/');
+      } else if (dob.contains('-')) {
+        parts = dob.split('-');
+      } else {
+        return 0;
+      }
+      
+      if (parts.length == 3) {
+        int day, month, year;
+        
+        // Handle DD/MM/YYYY or DD-MM-YYYY format
+        if (int.parse(parts[0]) > 12) {
+          day = int.parse(parts[0]);
+          month = int.parse(parts[1]);
+          year = int.parse(parts[2]);
+        } else {
+          // Handle MM/DD/YYYY or MM-DD-YYYY format
+          month = int.parse(parts[0]);
+          day = int.parse(parts[1]);
+          year = int.parse(parts[2]);
+        }
+        
+        DateTime birthDate = DateTime(year, month, day);
+        DateTime currentDate = DateTime.now();
+        
+        int age = currentDate.year - birthDate.year;
+        
+        // Adjust age if birthday hasn't occurred this year
+        if (currentDate.month < birthDate.month ||
+            (currentDate.month == birthDate.month && currentDate.day < birthDate.day)) {
+          age--;
+        }
+        
+        return age;
+      }
+    } catch (e) {
+      debugPrint('Error calculating age: $e');
+    }
+    
+    return 0;
+  }
+
   void _populateCustomerData(Map<String, dynamic>? apiData) {
     try {
       if (apiData != null) {
@@ -241,7 +290,26 @@ class _AddFamilyMembersState extends State<AddFamilyMembers>
       return;
     }
 
+    // Age validation
+    int age = _calculateAge(_dateOfBirthController.text);
     String relationship = _relationshipController.text;
+
+    // Validate age based on relationship
+    if (relationship == 'Spouse') {
+      if (age < 18) {
+        ToastMessage.failedToast('Spouse must be at least 18 years old');
+        return;
+      }
+      if (age > 70) {
+        ToastMessage.failedToast('Spouse age cannot exceed 70 years');
+        return;
+      }
+    } else if (relationship.startsWith('Child')) {
+      if (age > 25) {
+        ToastMessage.failedToast('Child age cannot exceed 25 years');
+        return;
+      }
+    }
 
     // If it's a spouse, check if already exists
     if (relationship == 'Spouse') {
@@ -494,6 +562,18 @@ class _AddFamilyMembersState extends State<AddFamilyMembers>
       if (apiData['mail_id'].toString().isEmpty) {
         ToastMessage.failedToast(
           'Email is required. Please check your NORKA data.',
+        );
+        setState(() {
+          _isLoading = false;
+        });
+        return;
+      }
+
+      // Validate self age (must be ≤ 70 years)
+      int selfAge = _calculateAge(_customerDateOfBirthController.text);
+      if (selfAge > 70) {
+        ToastMessage.failedToast(
+          'Sorry, you cannot continue as your age exceeds 70 years. Maximum age limit is 70 years.',
         );
         setState(() {
           _isLoading = false;

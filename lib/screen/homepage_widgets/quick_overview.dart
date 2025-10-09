@@ -95,13 +95,31 @@ class _QuickOverviewState extends State<QuickOverview> {
     );
   }
 
-  /// Get premium amount from payment history (same as payment details page)
+  /// Get premium amount from payment history (updated for unified API)
   String _getPremiumAmountFromPaymentHistory(Map<String, dynamic> paymentData) {
     if (paymentData.isEmpty) {
       return '₹0';
     }
 
-    // Check if payment history has data
+    // Check for unified API response structure (payments array)
+    if (paymentData.containsKey('payments') && paymentData['payments'] is List) {
+      final transactions = paymentData['payments'] as List<dynamic>;
+
+      if (transactions.isNotEmpty) {
+        // Get the latest transaction (first in the list)
+        final latestTransaction = transactions.first as Map<String, dynamic>;
+
+        // Extract amount from transaction
+        final amount = latestTransaction['amount'] as int? ?? 0;
+
+        // Convert from paise to rupees
+        final amountInRupees = amount / 100;
+
+        return '₹${amountInRupees.toStringAsFixed(0)}';
+      }
+    }
+
+    // Fallback: Check for old API response structure (data array)
     if (paymentData.containsKey('data') && paymentData['data'] is List) {
       final transactions = paymentData['data'] as List<dynamic>;
 
@@ -109,10 +127,10 @@ class _QuickOverviewState extends State<QuickOverview> {
         // Get the latest transaction (first in the list)
         final latestTransaction = transactions.first as Map<String, dynamic>;
 
-        // Extract amount from transaction (same logic as payment details page)
+        // Extract amount from transaction
         final amount = latestTransaction['amount'] as int? ?? 0;
 
-        // Convert from paise to rupees (same as payment details page)
+        // Convert from paise to rupees
         final amountInRupees = amount / 100;
 
         return '₹${amountInRupees.toStringAsFixed(0)}';

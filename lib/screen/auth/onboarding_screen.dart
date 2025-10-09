@@ -1,4 +1,4 @@
-import 'package:norkacare_app/screen/auth/login_screen.dart';
+
 import 'package:norkacare_app/screen/auth/registration_screen.dart';
 import 'package:norkacare_app/widgets/custom_button.dart';
 import 'package:flutter/material.dart';

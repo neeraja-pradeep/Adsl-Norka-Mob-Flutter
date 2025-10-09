@@ -49,12 +49,10 @@ class _ViewFamilyMembersState extends State<ViewFamilyMembers> {
     );
 
     if (norkaProvider.norkaId.isNotEmpty) {
-      // Only show loading if we haven't loaded before
-      if (!verificationProvider.hasFamilyMembersLoadedOnce) {
-        await verificationProvider.getFamilyMembersWithOfflineFallback(norkaProvider.norkaId);
-      }
-      if (!verificationProvider.hasEnrollmentDetailsLoadedOnce) {
-        await verificationProvider.getEnrollmentDetailsWithOfflineFallback(norkaProvider.norkaId);
+      // Use unified API to get all user data (including family and enrollment)
+      if (!verificationProvider.hasFamilyMembersLoadedOnce || 
+          !verificationProvider.hasEnrollmentDetailsLoadedOnce) {
+        await verificationProvider.getUserDetailsForDashboard(norkaProvider.norkaId);
       }
     }
   }
@@ -164,13 +162,13 @@ class _ViewFamilyMembersState extends State<ViewFamilyMembers> {
                 ? AppConstants.whiteColor
                 : AppConstants.blackColor,
           ),
-          const SizedBox(height: 8),
-          AppText(
-            text: '$familyCount family members covered',
-            size: 16,
-            weight: FontWeight.w500,
-            textColor: AppConstants.greyColor,
-          ),
+          // const SizedBox(height: 8),
+          // AppText(
+          //   text: '$familyCount family members covered',
+          //   size: 16,
+          //   weight: FontWeight.w500,
+          //   textColor: AppConstants.greyColor,
+          // ),
         ],
       ),
     );
@@ -276,15 +274,22 @@ class _ViewFamilyMembersState extends State<ViewFamilyMembers> {
   }
 
   List<FamilyMember> _convertApiDataToFamilyMembers(
-    Map<String, dynamic> familyData,
+Map<String, dynamic> familyData,
     Map<String, dynamic> enrollmentData,
   ) {
     List<FamilyMember> members = [];
 
-    // Extract enrollment data
+    // Extract enrollment data - handle both old and new API response structures
     Map<String, dynamic> enrollmentDetails = {};
-    if (enrollmentData.isNotEmpty && enrollmentData['data'] != null) {
-      enrollmentDetails = enrollmentData['data'];
+    if (enrollmentData.isNotEmpty) {
+      // Check for unified API response structure (direct enrollment data)
+      if (enrollmentData.containsKey('self_enrollment_number')) {
+        enrollmentDetails = enrollmentData;
+      }
+      // Check for old API response structure (data wrapper)
+      else if (enrollmentData['data'] != null) {
+        enrollmentDetails = enrollmentData['data'];
+      }
     }
 
     // Add Self
@@ -366,20 +371,34 @@ class _ViewFamilyMembersState extends State<ViewFamilyMembers> {
       return '';
     }
 
-    // Check if the date is in MM-DD-YYYY format (with hyphens) - most common format from API
+    // Check if the date is in YYYY-MM-DD format (from unified API)
     if (dob.contains('-') && dob.length >= 10) {
       try {
         List<String> parts = dob.split('-');
         debugPrint('Split parts: $parts');
         if (parts.length == 3) {
-          String month = parts[0].padLeft(2, '0');
-          String day = parts[1].padLeft(2, '0');
-          String year = parts[2];
+          // Check if first part is 4 digits (year) - YYYY-MM-DD format
+          if (parts[0].length == 4) {
+            String year = parts[0];
+            String month = parts[1].padLeft(2, '0');
+            String day = parts[2].padLeft(2, '0');
 
-          // Convert from MM-DD-YYYY to DD/MM/YYYY
-          String formattedDate = '$day/$month/$year';
-          debugPrint('Formatted DOB: "$formattedDate"');
-          return formattedDate;
+            // Convert from YYYY-MM-DD to DD/MM/YYYY
+            String formattedDate = '$day/$month/$year';
+            debugPrint('Formatted DOB (YYYY-MM-DD): "$formattedDate"');
+            return formattedDate;
+          }
+          // Otherwise assume MM-DD-YYYY format
+          else {
+            String month = parts[0].padLeft(2, '0');
+            String day = parts[1].padLeft(2, '0');
+            String year = parts[2];
+
+            // Convert from MM-DD-YYYY to DD/MM/YYYY
+            String formattedDate = '$day/$month/$year';
+            debugPrint('Formatted DOB (MM-DD-YYYY): "$formattedDate"');
+            return formattedDate;
+          }
         }
       } catch (e) {
         debugPrint('Error formatting DOB: $e');
@@ -398,7 +417,7 @@ class _ViewFamilyMembersState extends State<ViewFamilyMembers> {
 
           // Convert from MM/DD/YYYY to DD/MM/YYYY
           String formattedDate = '$day/$month/$year';
-          debugPrint('Formatted DOB: "$formattedDate"');
+          debugPrint('Formatted DOB (MM/DD/YYYY): "$formattedDate"');
           return formattedDate;
         }
       } catch (e) {

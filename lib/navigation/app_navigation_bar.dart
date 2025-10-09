@@ -1,4 +1,3 @@
-import 'package:norkacare_app/comingsoon_claim.dart';
 import 'package:norkacare_app/screen/insurence/documents_page.dart';
 import 'package:norkacare_app/screen/homepage.dart';
 import 'package:norkacare_app/screen/insurence/my_claims_page.dart';
@@ -25,8 +24,8 @@ class _AppNavigationBarState extends State<AppNavigationBar>
   final List<Widget> _pages = [
     Homepage(),
     MyPoliciesPage(),
-    // MyClaimsPage(),
-     ComingsoonClaim(),
+    MyClaimsPage(),
+    //  ComingsoonClaim(),
     DocumentsPage(),
     ProfilePage(),
   ];

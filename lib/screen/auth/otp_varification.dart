@@ -8,6 +8,7 @@ import '../../widgets/app_text.dart';
 import 'package:provider/provider.dart';
 import '../../provider/otp_verification_provider.dart';
 import '../../provider/auth_provider.dart';
+import '../../provider/norka_provider.dart';
 import '../verification/customer_details.dart';
 
 class OtpVarification extends StatefulWidget {
@@ -130,6 +131,24 @@ class _OtpVarificationState extends State<OtpVarification>
     return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
   }
 
+  String _getIdentifierLabel() {
+    final identifier = widget.customerId;
+    
+    // Check if it's an email
+    if (identifier.contains('@')) {
+      return 'Email: $identifier';
+    }
+    
+    // Check if it's a phone number (contains only digits and possibly + or -)
+    final phoneRegex = RegExp(r'^[+\-\d\s()]+$');
+    if (phoneRegex.hasMatch(identifier)) {
+      return 'Phone: $identifier';
+    }
+    
+    // Otherwise, it's a Norka ID
+    return 'Norka ID: $identifier';
+  }
+
   Widget _buildHelpItem(String text) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -195,44 +214,66 @@ class _OtpVarificationState extends State<OtpVarification>
       if (otpVerified) {
         // ToastMessage.successToast('OTP verified successfully!');
 
-        // Check payment status after successful OTP verification
-        if (mounted) {
-          final hasPayment = await otpVerificationProvider.checkPaymentStatus(
-            widget.customerId,
-          );
-
-          if (hasPayment) {
-            // If payment is completed, login user and go directly to AppNavigationBar
-            debugPrint(
-              "Payment completed - logging in user and navigating to AppNavigationBar",
+        // Update NORKA provider with OTP verification response data
+        final norkaProvider = Provider.of<NorkaProvider>(context, listen: false);
+        final userData = otpVerificationProvider.getVerifiedCustomerData();
+        
+        // Debug logging
+        debugPrint("=== OTP VERIFICATION DEBUG ===");
+        debugPrint("Input (widget.customerId): ${widget.customerId}");
+        debugPrint("User data from OTP verification: $userData");
+        debugPrint("NORKA user details: ${otpVerificationProvider.norkaUserDetails}");
+        debugPrint("Verification response: ${otpVerificationProvider.verificationResponse}");
+        debugPrint("=================================");
+        
+        if (userData != null) {
+          // Use the actual NORKA ID from the response for the provider
+          final norkaId = userData['norka_id'] ?? widget.customerId;
+          norkaProvider.setResponseDataFromOtpVerification(userData, norkaId);
+          
+          // Check enrollment status using the actual NORKA ID from the response
+          if (mounted) {
+            final hasEnrollment = await otpVerificationProvider.checkEnrollmentStatus(
+              norkaId,
             );
 
-            final authProvider = Provider.of<AuthProvider>(
-              context,
-              listen: false,
-            );
-            await authProvider.login(widget.customerId);
+            if (hasEnrollment) {
+              // If enrollment exists, login user and go directly to AppNavigationBar
+              debugPrint(
+                "Enrollment found - logging in user and navigating to AppNavigationBar",
+              );
 
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (context) => const AppNavigationBar()),
-            );
-          } else {
-            // If payment is not completed, follow normal flow to CustomerDetails
-            debugPrint(
-              "Payment not completed - following normal flow to CustomerDetails",
-            );
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => CustomerDetails(
-                  customerId: widget.customerId,
-                  customerData: otpVerificationProvider
-                      .getVerifiedCustomerData(),
+              final authProvider = Provider.of<AuthProvider>(
+                context,
+                listen: false,
+              );
+              await authProvider.login(norkaId);
+
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (context) => const AppNavigationBar()),
+              );
+            } else {
+              // If no enrollment found, follow normal flow to CustomerDetails
+              debugPrint(
+                "No enrollment found - following normal flow to CustomerDetails",
+              );
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => CustomerDetails(
+                    customerId: norkaId,
+                    customerData: otpVerificationProvider
+                        .getVerifiedCustomerData(),
+                  ),
                 ),
-              ),
-            );
+              );
+            }
           }
+        } else {
+          // If no user data available, show error
+          debugPrint("No user data available from OTP verification");
+          ToastMessage.failedToast('Failed to get user data. Please try again.');
         }
       } else {
         ToastMessage.failedToast(
@@ -402,7 +443,7 @@ class _OtpVarificationState extends State<OtpVarification>
               ),
               const SizedBox(height: 8),
               AppText(
-                text: 'Norka ID: ${widget.customerId}',
+                text: _getIdentifierLabel(),
                 size: 14,
                 weight: FontWeight.w600,
                 textColor: AppConstants.greyColor,

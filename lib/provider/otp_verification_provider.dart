@@ -1,8 +1,8 @@
 import 'package:norkacare_app/services/otp_verification_service.dart';
-import 'package:norkacare_app/services/norka_service.dart';
 import 'package:flutter/foundation.dart';
 import 'package:dio/dio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
 
 class OtpVerificationProvider extends ChangeNotifier {
   bool _isLoading = false;
@@ -52,6 +52,17 @@ class OtpVerificationProvider extends ChangeNotifier {
     }
   }
 
+  // Save NORKA response data to SharedPreferences for NORKA provider to use
+  Future<void> _saveNorkaResponseDataToPrefs(Map<String, dynamic> userData) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('norka_response_data', jsonEncode(userData));
+      debugPrint("NORKA response data saved to SharedPreferences");
+    } catch (e) {
+      debugPrint("Error saving NORKA response data to SharedPreferences: $e");
+    }
+  }
+
   void _handleError(DioException e) {
     _errorMessage =
         e.response?.data['message'] ?? 'An error occurred. Please try again.';
@@ -62,19 +73,39 @@ class OtpVerificationProvider extends ChangeNotifier {
   }
 
   // Send OTP to user's email
-  Future<bool> sendOtp(String nrkId) async {
+  Future<bool> sendOtp(String input) async {
     _setLoading(true);
     _errorMessage = '';
     try {
-      final response = await OtpVerificationService.sendOtp(nrkId);
+      final response = await OtpVerificationService.sendOtp(input);
       _otpResponse = response;
 
-      if (response['success'] == true && response['data'] != null) {
-        _nrkId = nrkId;
-        _email = response['data']['verification']['primary_email'] ?? '';
-        _otpExpiresAt = response['data']['expires_at'] ?? '';
+      if (response['success'] == true) {
+        // Extract email from new API response structure
+        if (response['email_address'] != null) {
+          _email = response['email_address'];
+        } else if (response['data'] != null && response['data']['verification'] != null) {
+          // Fallback to old structure for dummy API
+          _email = response['data']['verification']['primary_email'] ?? '';
+        } else {
+          _email = '';
+        }
+        
+        // Extract NRK ID from response if available, otherwise use input
+        if (response['nrk_id'] != null) {
+          _nrkId = response['nrk_id'];
+        } else {
+          _nrkId = input; // Fallback to input if no nrk_id in response
+        }
+        
+        _otpExpiresAt = response['data']?['expires_at'] ?? '';
         _errorMessage = '';
-        debugPrint("OTP sent successfully to: $_email");
+        debugPrint("=== SEND OTP DEBUG ===");
+        debugPrint("Input: $input");
+        debugPrint("Response: $response");
+        debugPrint("Extracted email: $_email");
+        debugPrint("Extracted NRK ID: $_nrkId");
+        debugPrint("======================");
         return true;
       } else {
         _errorMessage = response['message'] ?? 'Failed to send OTP';
@@ -96,35 +127,48 @@ class OtpVerificationProvider extends ChangeNotifier {
   Future<bool> verifyOtp(String otp) async {
     if (_nrkId.isEmpty || _email.isEmpty) {
       _errorMessage = 'Missing required data for OTP verification';
+      debugPrint("Missing data - NRK ID: $_nrkId, Email: $_email");
       return false;
     }
 
     _setLoading(true);
     _errorMessage = '';
     try {
+      debugPrint("=== VERIFY OTP DEBUG ===");
+      debugPrint("Using NRK ID: $_nrkId");
+      debugPrint("Using Email: $_email");
+      debugPrint("OTP: $otp");
+      debugPrint("========================");
+      
       final response = await OtpVerificationService.verifyOtp(
-        nrkId: _nrkId,
+        input: _nrkId,
         email: _email,
         otp: otp,
       );
       _verificationResponse = response;
 
-      if (response['success'] == true) {
+      if (response['success'] == true && response['verified'] == true) {
         _errorMessage = '';
+
+        // Extract NRK ID from verification response if available
+        if (response['user_data'] != null && response['user_data']['norka_id'] != null) {
+          _nrkId = response['user_data']['norka_id'];
+        }
 
         // Save NRK ID to SharedPreferences for profile access
         await _saveNorkaIdToPrefs(_nrkId);
 
-        // Fetch user details from Norka API after successful OTP verification
-        try {
-          debugPrint("Fetching user details from Norka API for NRK ID: $_nrkId");
-          final norkaResponse = await NorkaService.getpravasidata(_nrkId);
-          _norkaUserDetails = norkaResponse;
-          debugPrint("Norka user details fetched successfully: $norkaResponse");
-        } catch (e) {
-          debugPrint("Error fetching Norka user details: $e");
-          // Don't fail the OTP verification if Norka API fails
-          // The user can still proceed, but without pre-filled data
+        // Store user data from verification response
+        if (response['user_data'] != null) {
+          _norkaUserDetails = response['user_data'];
+          debugPrint("User details from OTP verification: $_norkaUserDetails");
+          
+          // Also save to SharedPreferences for NORKA provider to use
+          await _saveNorkaResponseDataToPrefs(response['user_data']);
+        } else {
+          debugPrint("No user_data found in OTP verification response");
+          _errorMessage = 'User data not found in verification response';
+          return false;
         }
 
         debugPrint("OTP verified successfully");
@@ -156,7 +200,7 @@ class OtpVerificationProvider extends ChangeNotifier {
     _errorMessage = '';
     try {
       final response = await OtpVerificationService.resendOtp(
-        nrkId: _nrkId,
+        input: _nrkId,
         email: _email,
       );
 
@@ -238,6 +282,22 @@ class OtpVerificationProvider extends ChangeNotifier {
       return false;
     } catch (e) {
       debugPrint("Error checking payment status: $e");
+      return false;
+    }
+  }
+
+  // Check if user has enrollment numbers
+  Future<bool> checkEnrollmentStatus(String nrkId) async {
+    try {
+      debugPrint("Checking enrollment status for NRK ID: $nrkId");
+
+      // Call the service to check enrollment status (returns true if status code is 200/201)
+      final hasEnrollment = await OtpVerificationService.checkEnrollmentStatus(nrkId);
+
+      debugPrint("Enrollment status check result: $hasEnrollment");
+      return hasEnrollment;
+    } catch (e) {
+      debugPrint("Error checking enrollment status: $e");
       return false;
     }
   }

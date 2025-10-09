@@ -1,6 +1,4 @@
-import 'package:norkacare_app/services/norka_service.dart';
 import 'package:flutter/foundation.dart';
-import 'package:dio/dio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 
@@ -121,40 +119,38 @@ class NorkaProvider extends ChangeNotifier {
     }
   }
 
-  void _handleError(DioException e) {
-    _errorMessage =
-        e.response?.data['message'] ?? 'An error occurred. Please try again.';
-    if (e.response == null) {
-      _errorMessage = 'Network error. Please check your internet connection.';
-    }
-    debugPrint("Dio Error: ${e.response}");
+
+  // Method to set response data from OTP verification (replaces API call)
+  void setResponseDataFromOtpVerification(Map<String, dynamic> userData, String norkaId) {
+    _response = userData;
+    _norkaId = norkaId;
+    _hasUserDataLoadedOnce = true;
+    _errorMessage = '';
+    
+    // Save to SharedPreferences for persistence
+    saveNorkaIdToPrefs(_norkaId);
+    saveResponseDataToPrefs(userData);
+    
+    debugPrint("NORKA response data set from OTP verification: $_response");
+    notifyListeners();
   }
 
   Future<void> getpravasidata(String norkaId) async {
     _setLoading(true);
     _errorMessage = '';
     try {
-      final response = await NorkaService.getpravasidata(norkaId);
-      _response = response;
-      debugPrint(">>>>>>>$response");
-
-      // Check if the response contains the expected fields
-      if (response['norka_id'] != null && response['name'] != null) {
-        _errorMessage = '';
-        // Store the NORKA ID from the API response
-        _norkaId = response['norka_id'].toString();
-        // Save to SharedPreferences for persistence
-        await saveNorkaIdToPrefs(_norkaId);
-        // Save the complete response data to SharedPreferences
-        await saveResponseDataToPrefs(response);
-        // Mark that user data has been loaded at least once
+      // Try to get stored response data first
+      final storedResponse = await getResponseDataFromPrefs();
+      if (storedResponse != null) {
+        _response = storedResponse;
+        _norkaId = norkaId;
         _hasUserDataLoadedOnce = true;
-        debugPrint("Stored NORKA ID: $_norkaId");
+        _errorMessage = '';
+        debugPrint("Using stored NORKA response data: $_response");
       } else {
-        _errorMessage = 'Invalid response format';
+        _errorMessage = 'No user data available. Please complete OTP verification first.';
+        debugPrint("No stored NORKA response data found");
       }
-    } on DioException catch (e) {
-      _handleError(e);
     } catch (e) {
       _errorMessage = "An unexpected error occurred.";
       debugPrint("General Error: $e");

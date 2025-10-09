@@ -283,16 +283,18 @@ class _MyClaimsPageState extends State<MyClaimsPage> {
                 'All',
                 'Approved',
                 'Under Review',
-                'Pending',
-                'Completed',
+                'Required Information',
+                'Rejected',
+                'Settled',
               ].length,
               itemBuilder: (context, index) {
                 final filter = [
                   'All',
                   'Approved',
                   'Under Review',
-                  'Pending',
-                  'Completed',
+                  'Required Information',
+                  'Rejected',
+                  'Settled',
                 ][index];
                 return Container(
                   margin: const EdgeInsets.only(right: 12),
@@ -440,8 +442,8 @@ class _MyClaimsPageState extends State<MyClaimsPage> {
                 _buildDetailRow('Description', claim['description']),
                 if (claim['approvedAmount'] != null)
                   _buildDetailRow('Approved Amount', claim['approvedAmount']),
-                _buildDetailRow('Date', claim['date']),
-                _buildDetailRow('Policy Number', claim['policyNumber']),
+                _buildDetailRow('Date of Submission', claim['date']),
+                _buildDetailRow('Hospital', claim['hospital']),
               ],
             ),
           ),
@@ -559,9 +561,11 @@ class _MyClaimsPageState extends State<MyClaimsPage> {
         return AppConstants.greenColor;
       case 'Under Review':
         return AppConstants.orangeColor;
-      case 'Pending':
+      case 'Required Information':
+        return AppConstants.orangeColor;
+      case 'Rejected':
         return AppConstants.redColor;
-      case 'Completed':
+      case 'Settled':
         return AppConstants.primaryColor;
       default:
         return AppConstants.greyColor;
@@ -788,10 +792,12 @@ class _MyClaimsPageState extends State<MyClaimsPage> {
                   final isLast = index == claim['timeline'].length - 1;
                   final isProcessing = timeline['status'] == 'Processing';
                   final isCompleted =
-                      timeline['status'] == 'Claim Settled' ||
+                      timeline['status'] == 'Settled' ||
                       timeline['status'] == 'Approved' ||
                       timeline['status'] == 'Under Review' ||
-                      timeline['status'] == 'Claim Filed';
+                      timeline['status'] == 'Claim Filed' ||
+                      timeline['status'] == 'Required Information' ||
+                      timeline['status'] == 'Rejected';
 
                   return Row(
                     crossAxisAlignment: CrossAxisAlignment.start,

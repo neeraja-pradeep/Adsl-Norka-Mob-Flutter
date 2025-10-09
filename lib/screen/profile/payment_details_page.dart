@@ -29,9 +29,9 @@ class _PaymentDetailsPageState extends State<PaymentDetailsPage> {
   Future<void> _loadPaymentHistory() async {
     final provider = context.read<VerificationProvider>();
 
-    // Only show loading if we haven't loaded before
+    // Use unified API to get all user data (including payment history)
     if (!provider.hasPaymentHistoryLoadedOnce) {
-      await provider.getPaymentHistoryWithOfflineFallback(widget.nrkId);
+      await provider.getUserDetailsForDashboard(widget.nrkId);
     }
   }
 
@@ -92,7 +92,16 @@ class _PaymentDetailsPageState extends State<PaymentDetailsPage> {
           }
 
           final paymentHistory = verificationProvider.paymentHistory;
-          final transactions = paymentHistory['data'] as List<dynamic>? ?? [];
+          
+          // Handle both old and new API response structures
+          List<dynamic> transactions = [];
+          if (paymentHistory.containsKey('payments') && paymentHistory['payments'] is List) {
+            // New unified API structure
+            transactions = paymentHistory['payments'] as List<dynamic>;
+          } else if (paymentHistory.containsKey('data') && paymentHistory['data'] is List) {
+            // Old API structure
+            transactions = paymentHistory['data'] as List<dynamic>;
+          }
 
           print('Payment Debug - transactions: $transactions');
 

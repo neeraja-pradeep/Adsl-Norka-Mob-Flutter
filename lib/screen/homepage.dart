@@ -85,14 +85,27 @@ class _HomepageState extends State<Homepage> {
   };
 
   Future<void> _handleRefresh() async {
-    // Simulate API call delay
-    // await Future.delayed(const Duration(seconds: 1));
-
-    // Update the data (in a real app, this would fetch fresh data from API)
-    setState(() {
-      // Refresh data without changing values
-      // In a real app, this would fetch fresh data from API
-    });
+    debugPrint('=== DASHBOARD: Pull-to-refresh triggered ===');
+    
+    try {
+      final norkaProvider = Provider.of<NorkaProvider>(context, listen: false);
+      final verificationProvider = Provider.of<VerificationProvider>(context, listen: false);
+      
+      // Get NORKA ID
+      String norkaId = norkaProvider.norkaId;
+      if (norkaId.isEmpty) {
+        norkaId = await norkaProvider.getNorkaIdFromPrefs();
+      }
+      
+      if (norkaId.isNotEmpty) {
+        // Make fresh API call to get updated data
+        debugPrint('=== DASHBOARD: Pull-to-refresh making fresh API call ===');
+        await verificationProvider.getUserDetailsForDashboard(norkaId);
+        debugPrint('=== DASHBOARD: Pull-to-refresh completed successfully ===');
+      }
+    } catch (e) {
+      debugPrint('=== DASHBOARD: Pull-to-refresh failed: $e ===');
+    }
   }
 
   @override
@@ -148,25 +161,26 @@ class _HomepageState extends State<Homepage> {
         norkaId = await norkaProvider.getNorkaIdFromPrefs();
       }
 
-      // Load payment history if we have NORKA ID and haven't loaded it yet
-      if (norkaId.isNotEmpty &&
-          !verificationProvider.hasPaymentHistoryLoadedOnce) {
-        await verificationProvider.getPaymentHistoryWithOfflineFallback(norkaId);
-      }
-
-      // Load family details with offline fallback if we have NORKA ID and haven't loaded it yet
-      if (norkaId.isNotEmpty &&
-          !verificationProvider.hasFamilyMembersLoadedOnce) {
-        await verificationProvider.getFamilyMembersWithOfflineFallback(norkaId);
-      }
-
-      // Load enrollment details with offline fallback if we have NORKA ID and haven't loaded it yet
-      if (norkaId.isNotEmpty &&
-          !verificationProvider.hasEnrollmentDetailsLoadedOnce) {
-        await verificationProvider.getEnrollmentDetailsWithOfflineFallback(norkaId);
+      if (norkaId.isNotEmpty) {
+        // Always make API call to get fresh data every time user lands in dashboard
+        // This ensures we have the latest data, especially after payments
+        debugPrint('=== DASHBOARD: Making API call for fresh data ===');
+        try {
+          await verificationProvider.getUserDetailsForDashboard(norkaId);
+          debugPrint('=== DASHBOARD: Fresh data loaded successfully ===');
+        } catch (e) {
+          debugPrint('=== DASHBOARD: API call failed, loading cached data ===');
+          // If API call fails, try to load cached data for offline support
+          await verificationProvider.loadUnifiedApiResponseFromPrefs();
+          if (verificationProvider.getUnifiedApiResponse() != null) {
+            debugPrint('=== DASHBOARD: Using cached data as fallback ===');
+          } else {
+            debugPrint('=== DASHBOARD: No cached data available ===');
+          }
+        }
       }
     } catch (e) {
-      debugPrint('Error preloading payment history, family details, and enrollment details: $e');
+      debugPrint('Error preloading user data with unified API: $e');
     }
   }
 

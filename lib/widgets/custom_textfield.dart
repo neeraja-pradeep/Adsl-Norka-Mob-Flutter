@@ -39,9 +39,19 @@ class _CustomTextfieldState extends State<CustomTextfield> {
   }
 
   @override
+  void didUpdateWidget(CustomTextfield oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Update the obscured state if password property changed
+    if (oldWidget.isPassword != widget.isPassword) {
+      _isObscured = widget.isPassword;
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     return TextFormField(
+      key: ValueKey('${widget.labelText}_${widget.hintText}_${widget.prefixIcon}'),
       controller: widget.controller,
       enabled: widget.enabled,
       obscureText: _isObscured,
@@ -55,15 +65,17 @@ class _CustomTextfieldState extends State<CustomTextfield> {
       decoration: InputDecoration(
         filled: true,
         fillColor: isDarkMode ? AppConstants.darkBackgroundColor : Colors.white,
-        labelText: widget.hintText,
+        labelText: widget.labelText ?? widget.hintText,
         labelStyle: TextStyle(
           color: isDarkMode ? AppConstants.whiteColor : AppConstants.blackColor,
         ),
         hintText: widget.hintText,
-        hintStyle: TextStyle(color: AppConstants.greyColor),
+        hintStyle: TextStyle(
+          color: isDarkMode ? AppConstants.greyColor : Colors.grey[600],
+        ),
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 16,
-          vertical: 18,
+          vertical: 12,
         ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),

@@ -95,11 +95,26 @@ class _MyPoliciesPageState extends State<MyPoliciesPage> {
     );
 
     if (norkaProvider.norkaId.isNotEmpty) {
-      await verificationProvider.getEnrollmentDetailsWithOfflineFallback(norkaProvider.norkaId);
-      await verificationProvider.getDatesDetailsWithOfflineFallback(norkaProvider.norkaId);
-      // Use payment history API like payment details page and quick overview
-      if (!verificationProvider.hasPaymentHistoryLoadedOnce) {
-        await verificationProvider.getPaymentHistoryWithOfflineFallback(norkaProvider.norkaId);
+      // First try to load cached data for offline support
+      await verificationProvider.loadUnifiedApiResponseFromPrefs();
+      
+      // Use unified API to get all user data (including enrollment and payment)
+      if (!verificationProvider.hasEnrollmentDetailsLoadedOnce || 
+          !verificationProvider.hasPaymentHistoryLoadedOnce) {
+        try {
+          await verificationProvider.getUserDetailsForDashboard(norkaProvider.norkaId);
+        } catch (e) {
+          debugPrint('=== MY POLICIES: API call failed, using cached data ===');
+          // API call failed, but we might have cached data from loadUnifiedApiResponseFromPrefs
+        }
+      }
+      
+      // Also call dates API for specific date information
+      try {
+        await verificationProvider.getDatesDetailsWithOfflineFallback(norkaProvider.norkaId);
+      } catch (e) {
+        debugPrint('=== MY POLICIES: Dates API call failed, using cached data ===');
+        // Dates API call failed, but we might have cached data
       }
     }
   }
@@ -113,12 +128,25 @@ class _MyPoliciesPageState extends State<MyPoliciesPage> {
 
     // Get enrollment number from API response
     String enrollmentNumber = 'EN12345678'; // Default fallback
+    debugPrint('=== MY POLICIES: Getting enrollment number ===');
+    debugPrint('Enrollment details: ${verificationProvider.enrollmentDetails}');
+    
     if (verificationProvider.enrollmentDetails.isNotEmpty) {
-      final enrollmentData = verificationProvider.enrollmentDetails['data'];
-      if (enrollmentData != null &&
-          enrollmentData['self_enrollment_number'] != null) {
-        enrollmentNumber = enrollmentData['self_enrollment_number'].toString();
+      // Check for unified API response structure (direct enrollment data)
+      if (verificationProvider.enrollmentDetails.containsKey('self_enrollment_number')) {
+        enrollmentNumber = verificationProvider.enrollmentDetails['self_enrollment_number'].toString();
+        debugPrint('Found enrollment number (unified API): $enrollmentNumber');
       }
+      // Check for old API response structure (data wrapper)
+      else if (verificationProvider.enrollmentDetails['data'] != null) {
+        final enrollmentData = verificationProvider.enrollmentDetails['data'];
+        if (enrollmentData['self_enrollment_number'] != null) {
+          enrollmentNumber = enrollmentData['self_enrollment_number'].toString();
+          debugPrint('Found enrollment number (old API): $enrollmentNumber');
+        }
+      }
+    } else {
+      debugPrint('No enrollment details available, using default: $enrollmentNumber');
     }
 
     // Get user name from NORKA provider
@@ -215,13 +243,31 @@ class _MyPoliciesPageState extends State<MyPoliciesPage> {
     }
   }
 
-  /// Get premium amount from payment history (same as payment details page and quick overview)
+  /// Get premium amount from payment history (updated for unified API)
   String _getPremiumAmountFromPaymentHistory(Map<String, dynamic> paymentData) {
     if (paymentData.isEmpty) {
       return '₹0';
     }
 
-    // Check if payment history has data
+    // Check for unified API response structure (payments array)
+    if (paymentData.containsKey('payments') && paymentData['payments'] is List) {
+      final transactions = paymentData['payments'] as List<dynamic>;
+
+      if (transactions.isNotEmpty) {
+        // Get the latest transaction (first in the list)
+        final latestTransaction = transactions.first as Map<String, dynamic>;
+
+        // Extract amount from transaction
+        final amount = latestTransaction['amount'] as int? ?? 0;
+
+        // Convert from paise to rupees
+        final amountInRupees = amount / 100;
+
+        return '₹${amountInRupees.toStringAsFixed(0)}';
+      }
+    }
+
+    // Fallback: Check for old API response structure (data array)
     if (paymentData.containsKey('data') && paymentData['data'] is List) {
       final transactions = paymentData['data'] as List<dynamic>;
 
@@ -229,10 +275,10 @@ class _MyPoliciesPageState extends State<MyPoliciesPage> {
         // Get the latest transaction (first in the list)
         final latestTransaction = transactions.first as Map<String, dynamic>;
 
-        // Extract amount from transaction (same logic as payment details page)
+        // Extract amount from transaction
         final amount = latestTransaction['amount'] as int? ?? 0;
 
-        // Convert from paise to rupees (same as payment details page)
+        // Convert from paise to rupees
         final amountInRupees = amount / 100;
 
         return '₹${amountInRupees.toStringAsFixed(0)}';

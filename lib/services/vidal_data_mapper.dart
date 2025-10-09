@@ -268,7 +268,7 @@ class VidalDataMapper {
       final payload = {
         "request_id": finalRequestId,
         "corporate_name": "NORKA ROOTS",
-        "corporate_id": "N0626", // "N0626",
+        "corporate_id": "N0386", // "N0626",
         "employeeinfo": {
           "pincode": pincode,
           "address": address,
@@ -279,7 +279,7 @@ class VidalDataMapper {
           "policyinfo": [
             {
               "benefit_name": "Base policy",
-              "entity_name": "N0626", // "N0626",
+              "entity_name": "NORKA", // "N0626",
               "policy_number": "763300/25-26/NORKACARE/001",
               // "policy_number": "760100/NORKA ROOTS/BASE",
               "si_type": "Floater",
@@ -326,7 +326,7 @@ class VidalDataMapper {
       return {
         "request_id": VidalUtils.generateRequestId(),
         "corporate_name": "NORKA ROOTS",
-        "corporate_id": "N0626", // "N0626",
+        "corporate_id": "N0386", // "N0626",
         "employeeinfo": {
           "pincode": "",
           "address": "1st Floor, Tower B, Building No 8",
@@ -570,7 +570,7 @@ class VidalDataMapper {
       final payload = {
         "request_id": requestId,
         "corporate_name": "NORKA ROOTS",
-        "corporate_id": "N0626", // "N0626",
+        "corporate_id": "N0386", // "N0626",
         "employeeinfo": {
           "pincode": pincode,
           "address": address,
@@ -581,7 +581,7 @@ class VidalDataMapper {
           "policyinfo": [
             {
               "benefit_name": "Base policy",
-              "entity_name": "N0626", // "N0626",
+              "entity_name": "NORKA", // "N0626",
               "policy_number": "763300/25-26/NORKACARE/001",
               "si_type": "Floater",
               "dependent_info": dependentInfo,
