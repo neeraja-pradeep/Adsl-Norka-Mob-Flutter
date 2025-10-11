@@ -303,7 +303,7 @@ class _SplashScreenState extends State<SplashScreen>
                     child: FadeTransition(
                       opacity: _fadeAnimation,
                       child: Text(
-                        'Your Trusted Insurance Partner',
+                        'For Non-Resident Keralites (NRKs)',
                         style: TextStyle(
                           fontSize: 15,
                           color: AppConstants.whiteColor.withOpacity(0.9),

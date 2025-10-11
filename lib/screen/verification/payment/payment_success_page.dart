@@ -673,9 +673,12 @@ class _PaymentSuccessPageState extends State<PaymentSuccessPage>
                 opacity: _fadeAnimation,
                 child: Column(
                   children: [
+                    // Download E-Card Button - Disabled during enrollment processing
                     CustomButton(
-                      text: 'Download E-Card',
-                      onPressed: _handleViewECard,
+                      text: _isEnrolling
+                          ? 'Generating your E-card...'
+                          : 'Download E-Card',
+                      onPressed: _isEnrolling ? () {} : _handleViewECard,
                       color: AppConstants.secondaryColor,
                       textColor: AppConstants.blackColor,
                       height: 50,
@@ -816,8 +819,8 @@ class _PaymentSuccessPageState extends State<PaymentSuccessPage>
 
       // Call the Vidal E-Card API
       await verificationProvider.vidalEnrollmentEcard({
-        'employeeCode': employeeCode,
-        // 'employee_code': employeeCode,
+        // 'employeeCode': employeeCode,
+        'employee_code': employeeCode,
       });
 
       Navigator.of(context).pop(); // Close loading dialog

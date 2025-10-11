@@ -201,7 +201,7 @@ class VerificationService {
     try {
       var dio = await DioHelper.getInstance();
       var response = await dio.post(
-        '$VidalBaseURL/api/claims/ecard',
+        '$VidalBaseURL/vidal/claims/ecard',
         data: data,
       );
       print("user logged in : ${response.data}");

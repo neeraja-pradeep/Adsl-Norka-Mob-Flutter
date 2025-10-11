@@ -28,7 +28,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
 
   final List<OnboardingSlide> _slides = [
     OnboardingSlide(
-      title: 'Secure Your Future',
+      title: 'Insurance Coverage for NRKs',
       description:
           'Get comprehensive insurance coverage to protect what matters most to you and your family.',
       lottieAsset:
@@ -41,7 +41,8 @@ class _OnboardingScreenState extends State<OnboardingScreen>
       description:
           'File claims quickly and easily with our streamlined digital process and 24/7 support.',
       lottieAsset:
-          'https://assets5.lottiefiles.com/packages/lf20_5tl1xxnz.json',
+          'https://assets9.lottiefiles.com/packages/lf20_xyadoh9h.json',
+          
       icon: Icons.assignment_turned_in,
       color: Colors.blue,
     ),
@@ -50,7 +51,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
       description:
           'Get personalized advice from our insurance experts to find the perfect coverage for your needs.',
       lottieAsset:
-          'https://assets9.lottiefiles.com/packages/lf20_xyadoh9h.json',
+          'https://assets5.lottiefiles.com/packages/lf20_5tl1xxnz.json',
       icon: Icons.support_agent,
       color: Colors.blue,
     ),
@@ -169,7 +170,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
 
             // App Subtitle
             AppText(
-              text: 'Your Trusted Insurance Partner',
+              text: 'For Non-Resident Keralites (NRKs)',
               size: 18,
               weight: FontWeight.w600,
               textColor: Colors.white,
@@ -294,7 +295,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
 
             // Lottie Animation
             Container(
-              height: 250,
+              height: 180,
               width: double.infinity,
               decoration: BoxDecoration(
                 color: isDarkMode

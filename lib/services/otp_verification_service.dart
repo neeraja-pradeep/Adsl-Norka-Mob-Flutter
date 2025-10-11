@@ -39,7 +39,7 @@ class OtpVerificationService {
         
         var dio = await DioHelper.getInstance();
         var response = await dio.post(
-          'https://adslbackend.tqdemo.website/api/nrk-otp/phone/verify/',
+          '$FamilyBaseURL/nrk-otp/phone/verify/',
           data: requestData,
         );
         print("OTP sent response: ${response.data}");
@@ -79,7 +79,7 @@ class OtpVerificationService {
         
         var dio = await DioHelper.getInstance();
         var response = await dio.post(
-          'https://adslbackend.tqdemo.website/api/nrk-otp/otp/verify/',
+          '$FamilyBaseURL/nrk-otp/otp/verify/',
           data: requestData,
         );
         print("OTP verification response: ${response.data}");
@@ -132,7 +132,7 @@ class OtpVerificationService {
         
         var dio = await DioHelper.getInstance();
         var response = await dio.post(
-          'https://adslbackend.tqdemo.website/api/nrk-otp/phone/verify/',
+          '$FamilyBaseURL/nrk-otp/phone/verify/',
           data: requestData,
         );
         print("OTP resend response: ${response.data}");
@@ -212,35 +212,26 @@ class OtpVerificationService {
       return true;
     }
     
+    // If input contains letters, it's definitely not a phone number (likely NORKA ID)
+    if (input.contains(RegExp(r'[a-zA-Z]'))) {
+      return false;
+    }
+    
     // Remove any non-digit characters
     String digitsOnly = input.replaceAll(RegExp(r'\D'), '');
     
-    // If it's not all digits, it's not a phone number
-    if (digitsOnly.length != input.length) {
+    // If original input had non-digit characters (other than +), it's not a simple phone number
+    if (digitsOnly.length != input.length && !input.startsWith('+')) {
       return false;
     }
     
-    // NORKA IDs are typically longer (12+ digits) and start with specific patterns
-    // Phone numbers without country code are typically 7-10 digits
-    if (digitsOnly.length >= 12) {
-      // Likely a NORKA ID (12+ digits)
-      return false;
-    } else if (digitsOnly.length >= 7 && digitsOnly.length <= 10) {
-      // Likely a phone number (7-10 digits)
+    // Phone numbers are typically 10 digits (without country code)
+    // Anything else is likely a NORKA ID
+    if (digitsOnly.length == 10) {
       return true;
     }
     
-    // For 11 digits, check if it looks like a phone number
-    if (digitsOnly.length == 11) {
-      // If it starts with 0, it's likely a phone number with leading zero
-      if (digitsOnly.startsWith('0')) {
-        return true;
-      }
-      // Otherwise, it could be a NORKA ID
-      return false;
-    }
-    
-    // Default to not a phone number for ambiguous cases
+    // Default to NOT a phone number (treat as NORKA ID)
     return false;
   }
 }

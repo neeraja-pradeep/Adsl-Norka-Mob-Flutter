@@ -6,6 +6,7 @@ import 'package:norkacare_app/screen/profile/privacy_policy.dart';
 import 'package:norkacare_app/screen/profile/terms_of_service.dart';
 import 'package:norkacare_app/screen/insurence/my_policies_page.dart';
 import 'package:norkacare_app/screen/insurence/documents_page.dart';
+import 'package:norkacare_app/screen/insurence/my_claims_page.dart';
 import 'package:norkacare_app/screen/homepage.dart';
 import 'package:norkacare_app/utils/constants.dart';
 import 'package:norkacare_app/widgets/app_text.dart';
@@ -769,6 +770,10 @@ class _ProfilePageState extends State<ProfilePage> {
       // Reset homepage shimmer state
       Homepage.resetShimmerState();
       await Homepage.resetShimmerPreferences();
+
+      // Reset my claims shimmer state
+      MyClaimsPage.resetShimmerState();
+      await MyClaimsPage.resetShimmerPreferences();
 
       // Perform auth logout (this will clear auth-related SharedPreferences)
       await authProvider.logout();

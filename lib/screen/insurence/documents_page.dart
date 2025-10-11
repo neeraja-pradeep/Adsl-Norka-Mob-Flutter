@@ -411,8 +411,8 @@ class _DocumentsPageState extends State<DocumentsPage> {
 
       // Call the Vidal E-Card API
       await verificationProvider.vidalEnrollmentEcard({
-        'employeeCode': employeeCode,
-        // 'employee_code': employeeCode,
+        // 'employeeCode': employeeCode,
+        'employee_code': employeeCode,
       });
 
       Navigator.of(context).pop(); // Close loading dialog

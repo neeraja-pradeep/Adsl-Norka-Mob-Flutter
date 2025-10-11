@@ -55,6 +55,12 @@ class AuthProvider extends ChangeNotifier {
     await prefs.remove('has_shown_homepage_shimmer');
     await prefs.remove('has_shown_policies_shimmer');
     await prefs.remove('has_shown_documents_shimmer');
+    await prefs.remove('has_shown_claims_shimmer');
+    
+    // Clear cached claims data
+    await prefs.remove('cached_claims_data');
+    await prefs.remove('cached_dependents');
+    await prefs.remove('cached_claims');
     
     // Clear any additional verification/family related data
     await prefs.remove('verification_data');
@@ -111,6 +117,12 @@ class AuthProvider extends ChangeNotifier {
     await prefs.remove('has_shown_homepage_shimmer');
     await prefs.remove('has_shown_policies_shimmer');
     await prefs.remove('has_shown_documents_shimmer');
+    await prefs.remove('has_shown_claims_shimmer');
+    
+    // Clear cached claims data
+    await prefs.remove('cached_claims_data');
+    await prefs.remove('cached_dependents');
+    await prefs.remove('cached_claims');
 
     notifyListeners();
   }

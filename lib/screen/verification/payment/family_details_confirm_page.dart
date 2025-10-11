@@ -1171,7 +1171,7 @@ class _FamilyDetailsConfirmPageState extends State<FamilyDetailsConfirmPage> {
           'name': userName,
         },
         'theme': {'color': '#004EA1'}, // Using app primary color
-        'timeout': 300,
+        'timeout': 900,
         'retry': {'enabled': true, 'max_count': 3},
       };
 

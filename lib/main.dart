@@ -3,6 +3,7 @@ import 'package:norkacare_app/provider/norka_provider.dart';
 import 'package:norkacare_app/provider/verification_provider.dart';
 import 'package:norkacare_app/provider/hospital_provider.dart';
 import 'package:norkacare_app/provider/otp_verification_provider.dart';
+import 'package:norkacare_app/provider/claim_provider.dart';
 import 'package:norkacare_app/screen/auth/splash_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -63,6 +64,7 @@ class _MyAppState extends State<MyApp> {
             ChangeNotifierProvider(create: (_) => VerificationProvider()),
             ChangeNotifierProvider(create: (_) => HospitalProvider()),
             ChangeNotifierProvider(create: (_) => OtpVerificationProvider()),
+            ChangeNotifierProvider(create: (_) => ClaimProvider()),
           ],
           child: MaterialApp(
             debugShowCheckedModeBanner: false,

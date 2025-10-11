@@ -1,4 +1,6 @@
 import 'package:norkacare_app/navigation/app_navigation_bar.dart';
+import 'package:norkacare_app/screen/auth/dont_recieve_otp.dart';
+import 'package:norkacare_app/screen/profile/profile_details_page.dart';
 import 'package:norkacare_app/utils/constants.dart';
 import 'package:norkacare_app/widgets/custom_button.dart';
 import 'package:norkacare_app/widgets/toast_message.dart';
@@ -139,9 +141,21 @@ class _OtpVarificationState extends State<OtpVarification>
       return 'Email: $identifier';
     }
     
-    // Check if it's a phone number (contains only digits and possibly + or -)
-    final phoneRegex = RegExp(r'^[+\-\d\s()]+$');
-    if (phoneRegex.hasMatch(identifier)) {
+    // Check if it starts with + (definitely a phone number with country code)
+    if (identifier.startsWith('+')) {
+      return 'Phone: $identifier';
+    }
+    
+    // Check if it contains letters (definitely a NORKA ID)
+    if (identifier.contains(RegExp(r'[a-zA-Z]'))) {
+      return 'Norka ID: $identifier';
+    }
+    
+    // Remove any non-digit characters for digit count
+    String digitsOnly = identifier.replaceAll(RegExp(r'\D'), '');
+    
+    // If it's exactly 10 digits, it's likely a phone number
+    if (digitsOnly.length == 10 && digitsOnly == identifier) {
       return 'Phone: $identifier';
     }
     
@@ -408,7 +422,7 @@ class _OtpVarificationState extends State<OtpVarification>
 
             // App Subtitle
             AppText(
-              text: 'Your Trusted Insurance Partner',
+              text: 'For Non-Resident Keralites (NRKs)',
               size: 18,
               weight: FontWeight.w600,
               textColor: Colors.white,
@@ -552,8 +566,73 @@ class _OtpVarificationState extends State<OtpVarification>
                       ),
               ),
 
-              const SizedBox(height: 40),
-
+              const SizedBox(height: 20),
+              
+              // Update Profile Link
+              Center(
+                child: GestureDetector(
+                  onTap: () {
+                    final otpProvider = Provider.of<OtpVerificationProvider>(context, listen: false);
+                    final otpResponse = otpProvider.otpResponse;
+                    
+                    // Extract user data from OTP response
+                    String? userName = otpResponse?['user_name'];
+                    String? nrkId = otpResponse?['nrk_id'];
+                    
+                    print("=== DIALOG DATA DEBUG ===");
+                    print("Full OTP Response: $otpResponse");
+                    print("Extracted userName: $userName");
+                    print("Extracted nrkId: $nrkId");
+                    print("========================");
+                    
+                    showDialog(
+                      context: context,
+                      barrierDismissible: false,
+                      builder: (BuildContext context) {
+                        return DontReceiveOtpDialog(
+                          userName: userName,
+                          nrkId: nrkId,
+                        );
+                      },
+                    );
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    decoration: BoxDecoration(
+                      border: Border.all(
+                        color: AppConstants.primaryColor.withOpacity(0.3),
+                        width: 1,
+                      ),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.edit,
+                          size: 16,
+                          color: AppConstants.primaryColor,
+                        ),
+                        const SizedBox(width: 8),
+                        AppText(
+                          text: "Don't receive OTP? Update your profile",
+                          size: 14,
+                          weight: FontWeight.w500,
+                          textColor: AppConstants.primaryColor,
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(width: 8),
+                        Icon(
+                          Icons.arrow_forward_ios,
+                          size: 12,
+                          color: AppConstants.primaryColor,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
               // Help Section
               Container(
                 padding: const EdgeInsets.all(16),

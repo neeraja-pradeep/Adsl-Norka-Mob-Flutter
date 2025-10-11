@@ -610,6 +610,242 @@ class ShimmerWidgets {
     );
   }
 
+  // Claims Page Shimmer Widgets
+  static Widget buildShimmerClaimsPage({bool isDarkMode = false}) {
+    return SingleChildScrollView(
+      child: Column(
+        children: [
+          // Search and filter section shimmer
+          buildShimmerSearchAndFilterSection(isDarkMode: isDarkMode),
+          const SizedBox(height: 20),
+          // Claims count shimmer
+          _buildShimmerClaimsCount(isDarkMode: isDarkMode),
+          const SizedBox(height: 16),
+          // Claims cards shimmer
+          _buildShimmerClaimCard(isDarkMode: isDarkMode),
+          const SizedBox(height: 16),
+          _buildShimmerClaimCard(isDarkMode: isDarkMode),
+          const SizedBox(height: 16),
+          _buildShimmerClaimCard(isDarkMode: isDarkMode),
+          const SizedBox(height: 20),
+        ],
+      ),
+    );
+  }
+
+  static Widget _buildShimmerClaimsCount({bool isDarkMode = false}) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 20),
+      child: Shimmer.fromColors(
+        baseColor: isDarkMode
+            ? Colors.grey.withOpacity(0.4)
+            : Colors.grey.withOpacity(0.3),
+        highlightColor: isDarkMode
+            ? Colors.grey.withOpacity(0.7)
+            : Colors.grey.withOpacity(0.5),
+        child: Container(
+          height: 20,
+          width: 150,
+          decoration: BoxDecoration(
+            color: isDarkMode ? AppConstants.boxBlackColor : Colors.grey,
+            borderRadius: BorderRadius.circular(4),
+          ),
+        ),
+      ),
+    );
+  }
+
+  static Widget _buildShimmerClaimCard({bool isDarkMode = false}) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 20),
+      child: Shimmer.fromColors(
+        baseColor: isDarkMode
+            ? Colors.grey.withOpacity(0.4)
+            : Colors.grey.withOpacity(0.3),
+        highlightColor: isDarkMode
+            ? Colors.grey.withOpacity(0.7)
+            : Colors.grey.withOpacity(0.5),
+        child: Container(
+          decoration: BoxDecoration(
+            color: isDarkMode ? AppConstants.boxBlackColor : Colors.grey,
+            borderRadius: BorderRadius.circular(12),
+            border: isDarkMode
+                ? Border.all(color: Colors.white.withOpacity(0.1), width: 1)
+                : null,
+          ),
+          child: Column(
+            children: [
+              // Header shimmer
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: isDarkMode
+                      ? AppConstants.darkBackgroundColor
+                      : Colors.grey[200],
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(12),
+                    topRight: Radius.circular(12),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: isDarkMode
+                            ? Colors.grey.withOpacity(0.3)
+                            : Colors.grey[300],
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            height: 16,
+                            width: 120,
+                            decoration: BoxDecoration(
+                              color: isDarkMode
+                                  ? Colors.grey.withOpacity(0.3)
+                                  : Colors.grey[300],
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Container(
+                            height: 12,
+                            width: 80,
+                            decoration: BoxDecoration(
+                              color: isDarkMode
+                                  ? Colors.grey.withOpacity(0.3)
+                                  : Colors.grey[300],
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Container(
+                          height: 18,
+                          width: 60,
+                          decoration: BoxDecoration(
+                            color: isDarkMode
+                                ? Colors.grey.withOpacity(0.3)
+                                : Colors.grey[300],
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Container(
+                          height: 12,
+                          width: 40,
+                          decoration: BoxDecoration(
+                            color: isDarkMode
+                                ? Colors.grey.withOpacity(0.3)
+                                : Colors.grey[300],
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              // Details shimmer
+              Container(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  children: [
+                    _buildShimmerDetailRow(isDarkMode: isDarkMode),
+                    const SizedBox(height: 6),
+                    _buildShimmerDetailRow(isDarkMode: isDarkMode),
+                    const SizedBox(height: 6),
+                    _buildShimmerDetailRow(isDarkMode: isDarkMode),
+                  ],
+                ),
+              ),
+              // Action buttons shimmer
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: isDarkMode
+                      ? AppConstants.darkBackgroundColor
+                      : Colors.grey[200],
+                  borderRadius: const BorderRadius.only(
+                    bottomLeft: Radius.circular(12),
+                    bottomRight: Radius.circular(12),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Container(
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: isDarkMode
+                              ? Colors.grey.withOpacity(0.3)
+                              : Colors.grey[300],
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Container(
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: isDarkMode
+                              ? Colors.grey.withOpacity(0.3)
+                              : Colors.grey[300],
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  static Widget _buildShimmerDetailRow({bool isDarkMode = false}) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          height: 14,
+          width: 80,
+          decoration: BoxDecoration(
+            color: isDarkMode
+                ? Colors.grey.withOpacity(0.3)
+                : Colors.grey[300],
+            borderRadius: BorderRadius.circular(4),
+          ),
+        ),
+        const Spacer(),
+        Container(
+          height: 14,
+          width: 100,
+          decoration: BoxDecoration(
+            color: isDarkMode
+                ? Colors.grey.withOpacity(0.3)
+                : Colors.grey[300],
+            borderRadius: BorderRadius.circular(4),
+          ),
+        ),
+      ],
+    );
+  }
+
   // Helper method to build shimmer document card for documents page
   static Widget _buildShimmerDocumentsPageCard({bool isDarkMode = false}) {
     return Container(

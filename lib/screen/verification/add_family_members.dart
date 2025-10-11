@@ -865,7 +865,7 @@ class _AddFamilyMembersState extends State<AddFamilyMembers>
 
             // App Subtitle
             AppText(
-              text: 'Your Trusted Insurance Partner',
+              text: 'For Non-Resident Keralites (NRKs)',
               size: 18,
               weight: FontWeight.w600,
               textColor: Colors.white,

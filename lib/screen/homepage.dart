@@ -10,6 +10,7 @@ import 'package:liquid_pull_to_refresh/liquid_pull_to_refresh.dart';
 import 'package:provider/provider.dart';
 import 'package:norkacare_app/provider/norka_provider.dart';
 import 'package:norkacare_app/provider/verification_provider.dart';
+import 'package:norkacare_app/provider/claim_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class Homepage extends StatefulWidget {
@@ -90,6 +91,7 @@ class _HomepageState extends State<Homepage> {
     try {
       final norkaProvider = Provider.of<NorkaProvider>(context, listen: false);
       final verificationProvider = Provider.of<VerificationProvider>(context, listen: false);
+      final claimProvider = Provider.of<ClaimProvider>(context, listen: false);
       
       // Get NORKA ID
       String norkaId = norkaProvider.norkaId;
@@ -101,6 +103,11 @@ class _HomepageState extends State<Homepage> {
         // Make fresh API call to get updated data
         debugPrint('=== DASHBOARD: Pull-to-refresh making fresh API call ===');
         await verificationProvider.getUserDetailsForDashboard(norkaId);
+        
+        // Also refresh claims data
+        debugPrint('=== DASHBOARD: Pull-to-refresh fetching claims data ===');
+        await claimProvider.fetchClaimDependentInfo(norkaId: norkaId);
+        
         debugPrint('=== DASHBOARD: Pull-to-refresh completed successfully ===');
       }
     } catch (e) {
@@ -154,6 +161,7 @@ class _HomepageState extends State<Homepage> {
         context,
         listen: false,
       );
+      final claimProvider = Provider.of<ClaimProvider>(context, listen: false);
 
       // Get NORKA ID from SharedPreferences if not available in provider
       String norkaId = norkaProvider.norkaId;
@@ -177,6 +185,20 @@ class _HomepageState extends State<Homepage> {
           } else {
             debugPrint('=== DASHBOARD: No cached data available ===');
           }
+        }
+
+        // Also fetch claims data in the background
+        debugPrint('=== DASHBOARD: Fetching claims data ===');
+        try {
+          // First load cached claims data
+          await claimProvider.loadClaimsDataFromPrefs();
+          
+          // Then fetch fresh claims data
+          await claimProvider.fetchClaimDependentInfo(norkaId: norkaId);
+          debugPrint('=== DASHBOARD: Claims data loaded successfully ===');
+        } catch (e) {
+          debugPrint('=== DASHBOARD: Claims API call failed, using cached data: $e ===');
+          // Cached data already loaded above
         }
       }
     } catch (e) {

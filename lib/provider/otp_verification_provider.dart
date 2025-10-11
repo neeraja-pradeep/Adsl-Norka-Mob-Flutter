@@ -147,32 +147,59 @@ class OtpVerificationProvider extends ChangeNotifier {
       );
       _verificationResponse = response;
 
-      if (response['success'] == true && response['verified'] == true) {
+      if (response['success'] == true) {
         _errorMessage = '';
 
-        // Extract NRK ID from verification response if available
-        if (response['user_data'] != null && response['user_data']['norka_id'] != null) {
-          _nrkId = response['user_data']['norka_id'];
-        }
-
-        // Save NRK ID to SharedPreferences for profile access
-        await _saveNorkaIdToPrefs(_nrkId);
-
-        // Store user data from verification response
-        if (response['user_data'] != null) {
-          _norkaUserDetails = response['user_data'];
-          debugPrint("User details from OTP verification: $_norkaUserDetails");
+        // Handle dummy API response structure (has 'data' -> 'verification')
+        if (response['data'] != null && response['data']['verification'] != null) {
+          // Dummy API response structure
+          _norkaUserDetails = response['data']['verification'];
           
-          // Also save to SharedPreferences for NORKA provider to use
-          await _saveNorkaResponseDataToPrefs(response['user_data']);
+          // Extract NRK ID from dummy response
+          if (response['nrk_id'] != null) {
+            _nrkId = response['nrk_id'];
+          } else if (response['data']['verification']['norka_id'] != null) {
+            _nrkId = response['data']['verification']['norka_id'];
+          }
+          
+          debugPrint("User details from OTP verification (dummy): $_norkaUserDetails");
+          
+          // Save NRK ID and user data
+          await _saveNorkaIdToPrefs(_nrkId);
+          await _saveNorkaResponseDataToPrefs(_norkaUserDetails!);
+          
+          debugPrint("OTP verified successfully (dummy API)");
+          return true;
+        }
+        // Handle real API response structure (has 'verified' flag and 'user_data')
+        else if (response['verified'] == true) {
+          // Extract NRK ID from verification response if available
+          if (response['user_data'] != null && response['user_data']['norka_id'] != null) {
+            _nrkId = response['user_data']['norka_id'];
+          }
+
+          // Save NRK ID to SharedPreferences for profile access
+          await _saveNorkaIdToPrefs(_nrkId);
+
+          // Store user data from verification response
+          if (response['user_data'] != null) {
+            _norkaUserDetails = response['user_data'];
+            debugPrint("User details from OTP verification: $_norkaUserDetails");
+            
+            // Also save to SharedPreferences for NORKA provider to use
+            await _saveNorkaResponseDataToPrefs(response['user_data']);
+          } else {
+            debugPrint("No user_data found in OTP verification response");
+            _errorMessage = 'User data not found in verification response';
+            return false;
+          }
+
+          debugPrint("OTP verified successfully");
+          return true;
         } else {
-          debugPrint("No user_data found in OTP verification response");
-          _errorMessage = 'User data not found in verification response';
+          _errorMessage = 'Verification failed - invalid response structure';
           return false;
         }
-
-        debugPrint("OTP verified successfully");
-        return true;
       } else {
         _errorMessage = response['message'] ?? 'Invalid OTP';
         return false;
