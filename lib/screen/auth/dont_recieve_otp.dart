@@ -8,6 +8,7 @@ import 'package:norkacare_app/provider/verification_provider.dart';
 import 'package:norkacare_app/provider/otp_verification_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:norkacare_app/screen/auth/registration_screen.dart';
+import 'package:pinput/pinput.dart';
 
 class DontReceiveOtpDialog extends StatefulWidget {
   final String? userName;
@@ -266,6 +267,7 @@ class _DontReceiveOtpDialogState extends State<DontReceiveOtpDialog> {
         TextFormField(
           controller: _phoneController,
           keyboardType: TextInputType.phone,
+          cursorColor: AppConstants.primaryColor,
           inputFormatters: [
             FilteringTextInputFormatter.digitsOnly,
             LengthLimitingTextInputFormatter(10),
@@ -410,18 +412,18 @@ class _DontReceiveOtpDialogState extends State<DontReceiveOtpDialog> {
       try {
         final otpProvider = Provider.of<OtpVerificationProvider>(context, listen: false);
         
-        print("=== SEND OTP DEBUG ===");
+        print("=== SEND WHATSAPP OTP DEBUG ===");
         print("Phone Number: $completePhoneNumber");
-        print("======================");
+        print("================================");
         
-        // Send OTP to the new phone number
-        final otpSent = await otpProvider.sendOtp(completePhoneNumber);
+        // Send WhatsApp OTP to the new phone number
+        final otpSent = await otpProvider.sendWhatsAppOtp(completePhoneNumber);
         
         // Close loading dialog
         Navigator.of(context).pop();
         
         if (otpSent) {
-          // ToastMessage.successToast('OTP sent successfully!');
+          // ToastMessage.successToast('OTP sent via WhatsApp successfully!');
           
           // Show OTP verification dialog
           _showOtpVerificationDialog(completePhoneNumber);
@@ -434,14 +436,14 @@ class _DontReceiveOtpDialogState extends State<DontReceiveOtpDialog> {
         Navigator.of(context).pop();
         
         ToastMessage.failedToast('Failed to send OTP');
-        debugPrint('Error sending OTP: $e');
+        debugPrint('Error sending WhatsApp OTP: $e');
       }
     }
   }
 
   void _showOtpVerificationDialog(String phoneNumber) {
-    final List<TextEditingController> otpControllers = List.generate(6, (index) => TextEditingController());
-    final List<FocusNode> focusNodes = List.generate(6, (index) => FocusNode());
+    final TextEditingController pinController = TextEditingController();
+    final FocusNode pinFocusNode = FocusNode();
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     
     showDialog(
@@ -529,63 +531,106 @@ class _DontReceiveOtpDialogState extends State<DontReceiveOtpDialog> {
                         
                         const SizedBox(height: 16),
                         
-                        // OTP Input Fields
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                          children: List.generate(6, (index) {
-                            return SizedBox(
-                              width: 40,
-                              child: TextField(
-                                controller: otpControllers[index],
-                                focusNode: focusNodes[index],
-                                textAlign: TextAlign.center,
-                                keyboardType: TextInputType.number,
-                                maxLength: 1,
-                                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                  color: isDarkMode ? AppConstants.whiteColor : AppConstants.blackColor,
-                                ),
-                                decoration: InputDecoration(
-                                  counterText: '',
-                                  filled: true,
-                                  fillColor: isDarkMode
-                                      ? AppConstants.darkBackgroundColor
-                                      : AppConstants.whiteBackgroundColor,
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(10),
-                                    borderSide: BorderSide(
-                                      color: AppConstants.primaryColor,
-                                      width: 2,
-                                    ),
-                                  ),
-                                  enabledBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(10),
-                                    borderSide: BorderSide(
-                                      color: AppConstants.primaryColor,
-                                      width: 2,
-                                    ),
-                                  ),
-                                  focusedBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(10),
-                                    borderSide: BorderSide(
-                                      color: AppConstants.primaryColor,
-                                      width: 2,
-                                    ),
-                                  ),
-                                  contentPadding: const EdgeInsets.symmetric(vertical: 12),
-                                ),
-                                onChanged: (value) {
-                                  if (value.isNotEmpty && index < 5) {
-                                    focusNodes[index + 1].requestFocus();
-                                  } else if (value.isEmpty && index > 0) {
-                                    focusNodes[index - 1].requestFocus();
-                                  }
-                                },
+                        // OTP Input Field with Pinput
+                        Pinput(
+                          controller: pinController,
+                          focusNode: pinFocusNode,
+                          length: 6,
+                          defaultPinTheme: PinTheme(
+                            width: 45,
+                            height: 55,
+                            textStyle: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: isDarkMode
+                                  ? AppConstants.whiteColor
+                                  : AppConstants.blackColor,
+                            ),
+                            decoration: BoxDecoration(
+                              color: isDarkMode
+                                  ? AppConstants.darkBackgroundColor
+                                  : AppConstants.whiteBackgroundColor,
+                              border: Border.all(
+                                color: isDarkMode
+                                    ? AppConstants.greyColor
+                                    : AppConstants.greyColor,
+                                width: 2,
                               ),
-                            );
-                          }),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                          focusedPinTheme: PinTheme(
+                            width: 45,
+                            height: 55,
+                            textStyle: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: isDarkMode
+                                  ? AppConstants.whiteColor
+                                  : AppConstants.blackColor,
+                            ),
+                            decoration: BoxDecoration(
+                              color: isDarkMode
+                                  ? AppConstants.darkBackgroundColor
+                                  : AppConstants.whiteBackgroundColor,
+                              border: Border.all(
+                                color: AppConstants.primaryColor,
+                                width: 2,
+                              ),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                          submittedPinTheme: PinTheme(
+                            width: 45,
+                            height: 55,
+                            textStyle: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: isDarkMode
+                                  ? AppConstants.whiteColor
+                                  : AppConstants.blackColor,
+                            ),
+                            decoration: BoxDecoration(
+                              color: isDarkMode
+                                  ? AppConstants.darkBackgroundColor
+                                  : AppConstants.whiteBackgroundColor,
+                              border: Border.all(
+                                color: AppConstants.primaryColor,
+                                width: 2,
+                              ),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                          errorPinTheme: PinTheme(
+                            width: 45,
+                            height: 55,
+                            textStyle: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: isDarkMode
+                                  ? AppConstants.whiteColor
+                                  : AppConstants.blackColor,
+                            ),
+                            decoration: BoxDecoration(
+                              color: isDarkMode
+                                  ? AppConstants.darkBackgroundColor
+                                  : AppConstants.whiteBackgroundColor,
+                              border: Border.all(
+                                color: AppConstants.redColor,
+                                width: 2,
+                              ),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                          cursor: Container(
+                            width: 2,
+                            height: 22,
+                            color: AppConstants.primaryColor,
+                          ),
+                          keyboardType: TextInputType.number,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                          ],
                         ),
                         
                         const SizedBox(height: 20),
@@ -597,12 +642,8 @@ class _DontReceiveOtpDialogState extends State<DontReceiveOtpDialog> {
                               child: CustomButton(
                                 text: 'Cancel',
                                 onPressed: () {
-                                  for (var controller in otpControllers) {
-                                    controller.dispose();
-                                  }
-                                  for (var node in focusNodes) {
-                                    node.dispose();
-                                  }
+                                  pinController.dispose();
+                                  pinFocusNode.dispose();
                                   Navigator.of(dialogContext).pop();
                                 },
                                 color: AppConstants.greyColor,
@@ -615,8 +656,8 @@ class _DontReceiveOtpDialogState extends State<DontReceiveOtpDialog> {
                               child: CustomButton(
                                 text: 'Verify OTP',
                                 onPressed: () {
-                                  final otp = otpControllers.map((c) => c.text).join();
-                                  _verifyOtpAndUpdatePhone(dialogContext, otp, phoneNumber, otpControllers, focusNodes);
+                                  final otp = pinController.text;
+                                  _verifyOtpAndUpdatePhone(dialogContext, otp, phoneNumber, pinController, pinFocusNode);
                                 },
                                 color: AppConstants.primaryColor,
                                 textColor: AppConstants.whiteColor,
@@ -641,8 +682,8 @@ class _DontReceiveOtpDialogState extends State<DontReceiveOtpDialog> {
     BuildContext dialogContext,
     String otp,
     String phoneNumber,
-    List<TextEditingController> otpControllers,
-    List<FocusNode> focusNodes,
+    TextEditingController pinController,
+    FocusNode pinFocusNode,
   ) async {
     if (otp.length != 6) {
       ToastMessage.failedToast('Please enter a valid 6-digit OTP');
@@ -690,8 +731,11 @@ class _DontReceiveOtpDialogState extends State<DontReceiveOtpDialog> {
       final otpProvider = Provider.of<OtpVerificationProvider>(context, listen: false);
       final verificationProvider = Provider.of<VerificationProvider>(context, listen: false);
       
-      // Verify OTP
-      final otpVerified = await otpProvider.verifyOtp(otp);
+      // Verify WhatsApp OTP
+      final otpVerified = await otpProvider.verifyWhatsAppOtp(
+        phoneNumber: phoneNumber,
+        otp: otp,
+      );
       
       if (otpVerified) {
         // OTP verified, now update the primary phone
@@ -704,12 +748,8 @@ class _DontReceiveOtpDialogState extends State<DontReceiveOtpDialog> {
         
         if (response['success'] == true) {
           // Close OTP dialog
-          for (var controller in otpControllers) {
-            controller.dispose();
-          }
-          for (var node in focusNodes) {
-            node.dispose();
-          }
+          pinController.dispose();
+          pinFocusNode.dispose();
           Navigator.of(dialogContext).pop();
           
           // Close profile update dialog
@@ -736,7 +776,7 @@ class _DontReceiveOtpDialogState extends State<DontReceiveOtpDialog> {
       // Close loading dialog
       Navigator.of(dialogContext).pop();
       ToastMessage.failedToast('Error: $e');
-      debugPrint('Error verifying OTP: $e');
+      debugPrint('Error verifying WhatsApp OTP: $e');
     }
   }
 }

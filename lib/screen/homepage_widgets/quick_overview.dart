@@ -4,6 +4,7 @@ import 'package:norkacare_app/widgets/app_text.dart';
 import 'package:provider/provider.dart';
 import 'package:norkacare_app/provider/verification_provider.dart';
 import 'package:norkacare_app/provider/norka_provider.dart';
+import 'package:norkacare_app/provider/claim_provider.dart';
 
 class QuickOverview extends StatefulWidget {
   final Map<String, dynamic> customerInsuranceData;
@@ -21,8 +22,8 @@ class _QuickOverviewState extends State<QuickOverview> {
   @override
   Widget build(BuildContext context) {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-    return Consumer2<VerificationProvider, NorkaProvider>(
-      builder: (context, verificationProvider, norkaProvider, child) {
+    return Consumer3<VerificationProvider, NorkaProvider, ClaimProvider>(
+      builder: (context, verificationProvider, norkaProvider, claimProvider, child) {
         // Payment history is preloaded during shimmer phase, no need for build-time loading
         return Container(
           margin: const EdgeInsets.symmetric(horizontal: 20),
@@ -44,7 +45,7 @@ class _QuickOverviewState extends State<QuickOverview> {
                     child: _buildStatCard(
                       context,
                       title: 'Claimed Amount',
-                      value: '₹0',
+                      value: _getClaimedSettledAmount(claimProvider.claims),
                       icon: Icons.receipt_long,
                       color: AppConstants.primaryColor,
                     ),
@@ -54,7 +55,7 @@ class _QuickOverviewState extends State<QuickOverview> {
                     child: _buildStatCard(
                       context,
                       title: 'Balance Coverage',
-                      value: "₹500,000",
+                      value: _calculateBalanceCoverage(claimProvider.claims),
                       icon: Icons.security,
                       color: AppConstants.greenColor,
                     ),
@@ -79,10 +80,9 @@ class _QuickOverviewState extends State<QuickOverview> {
                   Expanded(
                     child: _buildStatCard(
                       context,
-                      title: 'Pending Claims',
-                      value:
-                          '${widget.customerInsuranceData['quickStats']['pendingClaims'] ?? 0}',
-                      icon: Icons.pending_actions,
+                      title: 'Total Claims',
+                      value: '${claimProvider.claims.length}',
+                      icon: Icons.flag_rounded,
                       color: AppConstants.redColor,
                     ),
                   ),
@@ -101,43 +101,153 @@ class _QuickOverviewState extends State<QuickOverview> {
       return '₹0';
     }
 
-    // Check for unified API response structure (payments array)
+    // Priority 1: Check for successful bulk upload payment first
+    if (paymentData.containsKey('bulk_upload_info') && 
+        paymentData['bulk_upload_info'] != null &&
+        paymentData.containsKey('premium_breakdown') &&
+        paymentData['premium_breakdown'] != null) {
+      final premiumBreakdown = paymentData['premium_breakdown'] as Map<String, dynamic>;
+      
+      if (premiumBreakdown.containsKey('total_amount')) {
+        final totalAmount = premiumBreakdown['total_amount'] as num? ?? 0;
+        return '₹${totalAmount.toStringAsFixed(0)}';
+      }
+    }
+
+    // Priority 2: Check for successful Razorpay payments (unified API structure)
     if (paymentData.containsKey('payments') && paymentData['payments'] is List) {
       final transactions = paymentData['payments'] as List<dynamic>;
 
       if (transactions.isNotEmpty) {
-        // Get the latest transaction (first in the list)
+        // Look for successful transactions first
+        for (final transaction in transactions) {
+          final transactionData = transaction as Map<String, dynamic>;
+          final rzpPayload = transactionData['rzp_payload'] as Map<String, dynamic>? ?? {};
+          final status = rzpPayload['status'] as String? ?? 'unknown';
+          
+          // If we find a successful transaction, use it
+          if (status == 'captured') {
+            final amount = transactionData['amount'] as int? ?? 0;
+            final amountInRupees = amount / 100;
+            return '₹${amountInRupees.toStringAsFixed(0)}';
+          }
+        }
+        
+        // If no successful transactions found, use the latest one (even if failed)
         final latestTransaction = transactions.first as Map<String, dynamic>;
-
-        // Extract amount from transaction
         final amount = latestTransaction['amount'] as int? ?? 0;
-
-        // Convert from paise to rupees
         final amountInRupees = amount / 100;
-
         return '₹${amountInRupees.toStringAsFixed(0)}';
       }
     }
 
-    // Fallback: Check for old API response structure (data array)
+    // Priority 3: Fallback to old API response structure (data array)
     if (paymentData.containsKey('data') && paymentData['data'] is List) {
       final transactions = paymentData['data'] as List<dynamic>;
 
       if (transactions.isNotEmpty) {
-        // Get the latest transaction (first in the list)
+        // Look for successful transactions first
+        for (final transaction in transactions) {
+          final transactionData = transaction as Map<String, dynamic>;
+          final rzpPayload = transactionData['rzp_payload'] as Map<String, dynamic>? ?? {};
+          final status = rzpPayload['status'] as String? ?? 'unknown';
+          
+          // If we find a successful transaction, use it
+          if (status == 'captured') {
+            final amount = transactionData['amount'] as int? ?? 0;
+            final amountInRupees = amount / 100;
+            return '₹${amountInRupees.toStringAsFixed(0)}';
+          }
+        }
+        
+        // If no successful transactions found, use the latest one (even if failed)
         final latestTransaction = transactions.first as Map<String, dynamic>;
-
-        // Extract amount from transaction
         final amount = latestTransaction['amount'] as int? ?? 0;
-
-        // Convert from paise to rupees
         final amountInRupees = amount / 100;
-
         return '₹${amountInRupees.toStringAsFixed(0)}';
       }
     }
 
     return '₹0';
+  }
+
+  /// Get claimed settled amount from claims data
+  String _getClaimedSettledAmount(List<dynamic> claims) {
+    if (claims.isEmpty) {
+      return '₹0';
+    }
+
+    double totalSettledAmount = 0.0;
+
+    for (final claim in claims) {
+      final claimData = claim as Map<String, dynamic>;
+      
+      // Check if claim is paid and has approved amount
+      final status = claimData['status']?.toString().toLowerCase() ?? '';
+      final approvedAmountStr = claimData['approvedAmount']?.toString() ?? '';
+      
+      // Consider claims as settled if status is 'paid' (as per API)
+      if (status == 'paid' && 
+          approvedAmountStr.isNotEmpty && 
+          approvedAmountStr != '0') {
+        
+        try {
+          final approvedAmount = double.parse(approvedAmountStr);
+          if (approvedAmount > 0) {
+            totalSettledAmount += approvedAmount;
+          }
+        } catch (e) {
+          debugPrint('Error parsing approved amount: $approvedAmountStr');
+        }
+      }
+    }
+
+    return '₹${totalSettledAmount.toStringAsFixed(0)}';
+  }
+
+  /// Calculate balance coverage (Total Coverage - Claimed Amount)
+  String _calculateBalanceCoverage(List<dynamic> claims) {
+    // Total coverage is fixed at ₹500,000
+    const double totalCoverage = 500000.0;
+    
+    if (claims.isEmpty) {
+      return '₹${totalCoverage.toStringAsFixed(0)}';
+    }
+
+    double totalSettledAmount = 0.0;
+
+    for (final claim in claims) {
+      final claimData = claim as Map<String, dynamic>;
+      
+      // Check if claim is paid and has approved amount
+      final status = claimData['status']?.toString().toLowerCase() ?? '';
+      final approvedAmountStr = claimData['approvedAmount']?.toString() ?? '';
+      
+      // Consider claims as settled if status is 'paid'
+      if (status == 'paid' && 
+          approvedAmountStr.isNotEmpty && 
+          approvedAmountStr != '0') {
+        
+        try {
+          final approvedAmount = double.parse(approvedAmountStr);
+          if (approvedAmount > 0) {
+            totalSettledAmount += approvedAmount;
+          }
+        } catch (e) {
+          debugPrint('Error parsing approved amount: $approvedAmountStr');
+        }
+      }
+    }
+
+    // Calculate balance: Total - Claimed
+    double balanceCoverage = totalCoverage - totalSettledAmount;
+    
+    // Ensure balance doesn't go negative
+    if (balanceCoverage < 0) {
+      balanceCoverage = 0;
+    }
+
+    return '₹${balanceCoverage.toStringAsFixed(0)}';
   }
 
   Widget _buildStatCard(

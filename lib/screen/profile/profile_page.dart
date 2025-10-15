@@ -1,5 +1,6 @@
 // import 'package:norkacare_app/screen/profile/about_page.dart';
 import 'package:norkacare_app/screen/profile/customer_support_page.dart';
+import 'package:norkacare_app/screen/profile/documents_upload.dart';
 import 'package:norkacare_app/screen/profile/payment_details_page.dart';
 import 'package:norkacare_app/screen/profile/hospital_page.dart';
 import 'package:norkacare_app/screen/profile/privacy_policy.dart';
@@ -8,6 +9,7 @@ import 'package:norkacare_app/screen/insurence/my_policies_page.dart';
 import 'package:norkacare_app/screen/insurence/documents_page.dart';
 import 'package:norkacare_app/screen/insurence/my_claims_page.dart';
 import 'package:norkacare_app/screen/homepage.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:norkacare_app/utils/constants.dart';
 import 'package:norkacare_app/widgets/app_text.dart';
 import 'package:norkacare_app/widgets/custom_button.dart';
@@ -23,6 +25,8 @@ import '../../provider/verification_provider.dart';
 import '../../provider/otp_verification_provider.dart';
 import '../../provider/hospital_provider.dart';
 import '../../provider/auth_provider.dart';
+import '../../provider/claim_provider.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -180,38 +184,96 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Widget _buildProfileHeader(String name, String customerId) {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    
+    // Get profile picture URL from API response
+    String? profilePictureUrl;
+    final verificationProvider = Provider.of<VerificationProvider>(context, listen: false);
+    final unifiedResponse = verificationProvider.getUnifiedApiResponse();
+    
+    if (unifiedResponse != null && 
+        unifiedResponse['user_details'] != null && 
+        unifiedResponse['user_details']['nrk_user'] != null) {
+      profilePictureUrl = unifiedResponse['user_details']['nrk_user']['profile_picture'];
+      debugPrint('Profile picture URL from API: $profilePictureUrl');
+    }
+    
     return Column(
       children: [
         // Profile Avatar with Edit Option
         Stack(
           children: [
             GestureDetector(
-              // onTap: _showImagePickerDialog,
-              child: Container(
-                width: 100,
-                height: 100,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: AppConstants.primaryColor.withOpacity(0.1),
-                  border: Border.all(
-                    color: AppConstants.primaryColor,
-                    width: 3,
-                  ),
-                  image: _profileImage != null
-                      ? DecorationImage(
-                          image: FileImage(_profileImage!),
-                          fit: BoxFit.cover,
-                        )
-                      : null,
-                ),
-                child: _profileImage == null
-                    ? Icon(
-                        Icons.person,
-                        size: 50,
-                        color: AppConstants.primaryColor,
-                      )
-                    : null,
-              ),
+              onTap: () => _showFullScreenImage(profilePictureUrl),
+              child: (profilePictureUrl != null && profilePictureUrl.isNotEmpty)
+                  ? ClipOval(
+                      child: CachedNetworkImage(
+                        imageUrl: profilePictureUrl,
+                        width: 100,
+                        height: 100,
+                        fit: BoxFit.cover,
+                        placeholder: (context, url) => 
+                        Container(
+                          width: 100,
+                          height: 100,
+                          // decoration: BoxDecoration(
+                          //   shape: BoxShape.circle,
+                            // color: AppConstants.primaryColor.withOpacity(0.1),
+                            color: Colors.transparent,
+                            // border: Border.all(
+                            //   color: AppConstants.primaryColor,
+                            //   width: 3,
+                            // ),
+                          // ),
+                          // child: Icon(
+                          //   Icons.person,
+                          //   size: 50,
+                          //   color: AppConstants.primaryColor,
+                          // ),
+                        ),
+                        errorWidget: (context, url, error) => Container(
+                          width: 100,
+                          height: 100,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: AppConstants.primaryColor.withOpacity(0.1),
+                            border: Border.all(
+                              color: AppConstants.primaryColor,
+                              width: 3,
+                            ),
+                          ),
+                          child: Icon(
+                            Icons.person,
+                            size: 50,
+                            color: AppConstants.primaryColor,
+                          ),
+                        ),
+                      ),
+                    )
+                  : Container(
+                      width: 100,
+                      height: 100,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: AppConstants.primaryColor.withOpacity(0.1),
+                        border: Border.all(
+                          color: AppConstants.primaryColor,
+                          width: 3,
+                        ),
+                        image: _profileImage != null
+                            ? DecorationImage(
+                                image: FileImage(_profileImage!),
+                                fit: BoxFit.cover,
+                              )
+                            : null,
+                      ),
+                      child: _profileImage == null
+                          ? Icon(
+                              Icons.person,
+                              size: 50,
+                              color: AppConstants.primaryColor,
+                            )
+                          : null,
+                    ),
             ),
           ],
         ),
@@ -315,6 +377,19 @@ class _ProfilePageState extends State<ProfilePage> {
             },
           ),
           _buildDivider(),
+          // Documents
+          _buildDocumentsTile(
+            icon: Icons.folder_outlined,
+            title: 'Documents',
+            subtitle: 'View your documents',
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const DocumentsUpload()),
+              );
+            },
+          ),
+          _buildDivider(),
           // Payments
           _buildPaymentTile(
             icon: Icons.wallet,
@@ -373,10 +448,10 @@ class _ProfilePageState extends State<ProfilePage> {
           //     );
           //   },
           // ),
-          _buildDivider(),
+          // _buildDivider(),
 
           // Dark Theme Toggle
-          _buildThemeToggleTile(),
+          // _buildThemeToggleTile(),
         ],
       ),
     );
@@ -593,6 +668,50 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
+  Widget _buildDocumentsTile({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    return ListTile(
+      leading: Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          color: AppConstants.primaryColor.withOpacity(0.1),
+          border: Border.all(
+            color: AppConstants.primaryColor.withOpacity(0.3),
+            width: 1,
+          ),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Icon(icon, color: AppConstants.primaryColor, size: 20),
+      ),
+      title: AppText(
+        text: title,
+        size: 16,
+        weight: FontWeight.w600,
+        textColor: isDarkMode
+            ? AppConstants.whiteColor
+            : AppConstants.blackColor,
+      ),
+      subtitle: AppText(
+        text: subtitle,
+        size: 14,
+        weight: FontWeight.normal,
+        textColor: AppConstants.greyColor,
+      ),
+      trailing: Icon(
+        Icons.arrow_forward_ios,
+        color: AppConstants.greyColor,
+        size: 16,
+      ),
+      onTap: onTap,
+    );
+  }
+
   Widget _buildThemeToggleTile() {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     return ValueListenableBuilder<bool?>(
@@ -731,6 +850,101 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
+  // Show profile image in full screen
+  void _showFullScreenImage(String? imageUrl) {
+    if (imageUrl == null || imageUrl.isEmpty) {
+      return; // Don't show anything if no image URL
+    }
+
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (BuildContext context) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          child: Container(
+            width: double.infinity,
+            height: MediaQuery.of(context).size.height * 0.5, // 50% of screen height
+            decoration: BoxDecoration(
+              color: Colors.black.withOpacity(0.9),
+            ),
+            child: GestureDetector(
+              onTap: () => Navigator.of(context).pop(), // Tap anywhere to close
+              child: InteractiveViewer(
+                panEnabled: true,
+                boundaryMargin: EdgeInsets.zero,
+                minScale: 0.8,
+                maxScale: 3.0,
+                child: Container(
+                  width: double.infinity,
+                  height: double.infinity,
+                  child: CachedNetworkImage(
+                    imageUrl: imageUrl,
+                    fit: BoxFit.cover,
+                    placeholder: (context, url) => Container(
+                      width: double.infinity,
+                      height: double.infinity,
+                      decoration: BoxDecoration(
+                        color: AppConstants.primaryColor.withOpacity(0.1),
+                      ),
+                      child: Center(
+                        child: CircularProgressIndicator(
+                          color: AppConstants.primaryColor,
+                          strokeWidth: 3,
+                        ),
+                      ),
+                    ),
+                    errorWidget: (context, url, error) => Container(
+                      width: double.infinity,
+                      height: double.infinity,
+                      decoration: BoxDecoration(
+                        color: AppConstants.primaryColor.withOpacity(0.1),
+                      ),
+                      child: Center(
+                        child: Icon(
+                          Icons.person,
+                          size: 150,
+                          color: AppConstants.primaryColor,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  // Clear cached profile picture URL from SharedPreferences (for logout)
+  Future<void> _clearProfilePictureUrlFromPrefs() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('profile_picture_url');
+      debugPrint('🗑️ Profile picture URL cleared from SharedPreferences');
+    } catch (e) {
+      debugPrint('❌ Error clearing profile picture URL: $e');
+    }
+  }
+
+  // Clear cached documents from SharedPreferences (for logout)
+  Future<void> _clearDocumentsFromPrefs() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final norkaProvider = Provider.of<NorkaProvider>(context, listen: false);
+      final nrkId = norkaProvider.norkaId;
+      
+      if (nrkId.isNotEmpty) {
+        await prefs.remove('documents_$nrkId');
+        debugPrint('🗑️ Cached documents cleared from SharedPreferences');
+      }
+    } catch (e) {
+      debugPrint('❌ Error clearing documents cache: $e');
+    }
+  }
+
   void _performLogout() async {
     try {
       // Get auth provider and perform logout
@@ -750,6 +964,7 @@ class _ProfilePageState extends State<ProfilePage> {
         context,
         listen: false,
       );
+      final claimProvider = Provider.of<ClaimProvider>(context, listen: false);
 
       // Clear all data from providers including SharedPreferences
       debugPrint("=== CLEARING ALL PROVIDER DATA ===");
@@ -757,6 +972,9 @@ class _ProfilePageState extends State<ProfilePage> {
       await verificationProvider.clearAllData();
       hospitalProvider.clearData();
       otpVerificationProvider.clearData();
+      
+      // Clear cached claims data from SharedPreferences
+      await claimProvider.clearCachedClaimsData();
       debugPrint("✅ All provider data cleared successfully");
 
       // Reset my policies shimmer state
@@ -774,6 +992,12 @@ class _ProfilePageState extends State<ProfilePage> {
       // Reset my claims shimmer state
       MyClaimsPage.resetShimmerState();
       await MyClaimsPage.resetShimmerPreferences();
+
+      // Clear cached profile picture URL
+      await _clearProfilePictureUrlFromPrefs();
+
+      // Clear cached documents
+      await _clearDocumentsFromPrefs();
 
       // Perform auth logout (this will clear auth-related SharedPreferences)
       await authProvider.logout();

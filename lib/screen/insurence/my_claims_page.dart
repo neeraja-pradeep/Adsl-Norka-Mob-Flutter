@@ -11,6 +11,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:norkacare_app/widgets/toast_message.dart';
 import 'package:norkacare_app/services/claim_service.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class MyClaimsPage extends StatefulWidget {
   const MyClaimsPage({super.key});
@@ -655,20 +656,22 @@ class _MyClaimsPageState extends State<MyClaimsPage> {
   String _getDisplayStatus(String? status) {
     if (status == null) return 'N/A';
     
+    // Convert to lowercase for case-insensitive comparison
+    String statusLower = status.toLowerCase();
+    
     // Map API status to display status
-    switch (status) {
-      case 'In-Progress':
-        return 'Under Review';
-      case 'Paid':
-        return 'Settled';
-      case 'Required Information':
-        return 'Required Information';
-      case 'Approved':
-        return 'Approved';
-      case 'Rejected':
-        return 'Rejected';
-      default:
-        return status;
+    if (statusLower == 'in-progress') {
+      return 'Under Review';
+    } else if (statusLower == 'paid') {
+      return 'Settled';
+    } else if (statusLower == 'required information') {
+      return 'Required Information';
+    } else if (statusLower == 'approved') {
+      return 'Approved';
+    } else if (statusLower == 'rejected') {
+      return 'Rejected';
+    } else {
+      return status;
     }
   }
 
@@ -948,9 +951,10 @@ class _MyClaimsPageState extends State<MyClaimsPage> {
 
   void _showClaimTimeline(Map<String, dynamic> claim) {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    String currentStatus = _getDisplayStatus(claim['status']);
     
-    // Check if timeline data exists
-    bool hasTimeline = claim['timeline'] != null && claim['timeline'] is List && (claim['timeline'] as List).isNotEmpty;
+    // Generate timeline based on current status
+    List<Map<String, dynamic>> timeline = _generateTimeline(currentStatus, claim);
     
     showDialog(
       context: context,
@@ -969,7 +973,7 @@ class _MyClaimsPageState extends State<MyClaimsPage> {
             ),
           ),
           title: AppText(
-            text: 'Claim Status',
+            text: 'Claim Status Timeline',
             size: 20,
             weight: FontWeight.bold,
             textColor: isDarkMode
@@ -987,169 +991,119 @@ class _MyClaimsPageState extends State<MyClaimsPage> {
                   textColor: AppConstants.greyColor,
                 ),
                 const SizedBox(height: 16),
-                if (hasTimeline)
-                  ...claim['timeline'].asMap().entries.map<Widget>((entry) {
+                
+                // Timeline
+                ...timeline.asMap().entries.map<Widget>((entry) {
                   final index = entry.key;
-                  final timeline = entry.value;
-                  final isLast = index == claim['timeline'].length - 1;
-                  final isProcessing = timeline['status'] == 'Processing';
-                  final isCompleted =
-                      timeline['status'] == 'Settled' ||
-                      timeline['status'] == 'Approved' ||
-                      timeline['status'] == 'Under Review' ||
-                      timeline['status'] == 'Claim Filed' ||
-                      timeline['status'] == 'Required Information' ||
-                      timeline['status'] == 'Rejected';
-
-                  return Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  final timelineItem = entry.value;
+                  final isLast = index == timeline.length - 1;
+                  final isCompleted = timelineItem['isCompleted'];
+                  final isCurrent = timelineItem['isCurrent'];
+                  
+                  return Column(
                     children: [
-                      Column(
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Container(
-                            width: 20,
-                            height: 20,
-                            decoration: BoxDecoration(
-                              color: isProcessing
-                                  ? AppConstants.secondaryColor
-                                  : (isCompleted
-                                        ? AppConstants.greenColor
-                                        : AppConstants.greyColor),
-                              shape: BoxShape.circle,
-                            ),
-                            child: Icon(
-                              isProcessing ? Icons.schedule : Icons.check,
-                              size: 12,
-                              color: AppConstants.whiteColor,
+                          Column(
+                            children: [
+                              Container(
+                                width: 24,
+                                height: 24,
+                                decoration: BoxDecoration(
+                                  color: isCurrent
+                                      ? (timelineItem['title'] == 'Rejected' 
+                                          ? AppConstants.redColor 
+                                          : AppConstants.primaryColor)
+                                      : (isCompleted
+                                            ? (timelineItem['title'] == 'Rejected' 
+                                                ? AppConstants.redColor 
+                                                : AppConstants.greenColor)
+                                            : AppConstants.greyColor.withOpacity(0.3)),
+                                  shape: BoxShape.circle,
+                                  border: isCurrent ? Border.all(
+                                    color: timelineItem['title'] == 'Rejected' 
+                                        ? AppConstants.redColor 
+                                        : AppConstants.primaryColor,
+                                    width: 2,
+                                  ) : null,
+                                ),
+                                child: Icon(
+                                  isCurrent
+                                      ? Icons.access_time
+                                      : (isCompleted
+                                            ? (timelineItem['title'] == 'Rejected' 
+                                                ? Icons.close 
+                                                : Icons.check)
+                                            : Icons.radio_button_unchecked),
+                                  size: 14,
+                                  color: isCurrent || isCompleted
+                                      ? AppConstants.whiteColor
+                                      : AppConstants.greyColor,
+                                ),
+                              ),
+                              if (!isLast)
+                                Container(
+                                  width: 2,
+                                  height: 60,
+                                  margin: const EdgeInsets.only(top: 8),
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      begin: Alignment.topCenter,
+                                      end: Alignment.bottomCenter,
+                                      colors: [
+                                        isCompleted
+                                            ? (timelineItem['title'] == 'Rejected' 
+                                                ? AppConstants.redColor.withOpacity(0.3)
+                                                : AppConstants.primaryColor.withOpacity(0.3))
+                                            : AppConstants.greyColor.withOpacity(0.2),
+                                        AppConstants.greyColor.withOpacity(0.1),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                AppText(
+                                  text: timelineItem['title'],
+                                  size: 16,
+                                  weight: FontWeight.w600,
+                                  textColor: isCurrent || isCompleted
+                                      ? (isDarkMode
+                                          ? AppConstants.whiteColor
+                                          : AppConstants.blackColor)
+                                      : AppConstants.greyColor,
+                                ),
+                                const SizedBox(height: 4),
+                                AppText(
+                                  text: timelineItem['description'],
+                                  size: 14,
+                                  weight: FontWeight.normal,
+                                  textColor: AppConstants.greyColor,
+                                ),
+                                if (isCompleted || isCurrent) ...[
+                                  const SizedBox(height: 4),
+                                  AppText(
+                                    text: timelineItem['date'],
+                                    size: 12,
+                                    weight: FontWeight.w500,
+                                    textColor: AppConstants.primaryColor,
+                                  ),
+                                ],
+                              ],
                             ),
                           ),
-                          if (!isLast)
-                            Container(
-                              width: 2,
-                              height: 40,
-                              color: AppConstants.greyColor.withOpacity(0.3),
-                            ),
                         ],
                       ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            AppText(
-                              text: timeline['status'],
-                              size: 16,
-                              weight: FontWeight.w600,
-                              textColor: isDarkMode
-                                  ? AppConstants.whiteColor
-                                  : AppConstants.blackColor,
-                            ),
-                            if (!isProcessing) ...[
-                              const SizedBox(height: 4),
-                              AppText(
-                                text: timeline['date'],
-                                size: 14,
-                                weight: FontWeight.w500,
-                                textColor: AppConstants.greyColor,
-                              ),
-                              const SizedBox(height: 4),
-                            ],
-                            AppText(
-                              text: timeline['description'],
-                              size: 14,
-                              weight: FontWeight.normal,
-                              textColor: isDarkMode
-                                  ? AppConstants.whiteColor
-                                  : AppConstants.blackColor,
-                            ),
-                            if (!isLast) const SizedBox(height: 16),
-                          ],
-                        ),
-                      ),
+                      if (!isLast) const SizedBox(height: 16),
                     ],
                   );
                 }).toList(),
-                if (!hasTimeline)
-                  Column(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: AppConstants.primaryColor.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Icon(
-                                  Icons.info_outline,
-                                  color: AppConstants.primaryColor,
-                                  size: 24,
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: AppText(
-                                    text: 'Current Status',
-                                    size: 18,
-                                    weight: FontWeight.bold,
-                                    textColor: isDarkMode
-                                        ? AppConstants.whiteColor
-                                        : AppConstants.blackColor,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 16),
-                            _buildDetailRow('Status', _getDisplayStatus(claim['status'])),
-                            const SizedBox(height: 8),
-                            _buildDetailRow('Claim Type', claim['claimType'] ?? 'N/A'),
-                            const SizedBox(height: 8),
-                            _buildDetailRow('Patient Name', claim['claimantName'] ?? 'N/A'),
-                            const SizedBox(height: 8),
-                            _buildDetailRow('Hospital', claim['hospName'] ?? 'N/A'),
-                            const SizedBox(height: 8),
-                            _buildDetailRow('Claim Amount', claim['claimAmount']?.toString() ?? 'N/A'),
-                            const SizedBox(height: 8),
-                            _buildDetailRow('Submitted Date', _formatDate(claim['receivedDate'])),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: AppConstants.orangeColor.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: AppConstants.orangeColor.withOpacity(0.3),
-                            width: 1,
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.access_time,
-                              color: AppConstants.orangeColor,
-                              size: 20,
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: AppText(
-                                text: 'Your claim is being processed. Detailed timeline will be available soon.',
-                                size: 13,
-                                weight: FontWeight.normal,
-                                textColor: isDarkMode
-                                    ? AppConstants.whiteColor.withOpacity(0.8)
-                                    : AppConstants.blackColor.withOpacity(0.7),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
               ],
             ),
           ),
@@ -1175,6 +1129,79 @@ class _MyClaimsPageState extends State<MyClaimsPage> {
         );
       },
     );
+  }
+
+  List<Map<String, dynamic>> _generateTimeline(String currentStatus, Map<String, dynamic> claim) {
+    List<Map<String, dynamic>> timeline = [];
+    
+    // Step 1: Under Review (always first)
+    timeline.add({
+      'title': 'Under Review',
+      'description': 'Your claim is being reviewed by our team',
+      'date': 'Submitted on ${_formatDate(claim['receivedDate'])}',
+      'isCompleted': currentStatus != 'Under Review',
+      'isCurrent': currentStatus == 'Under Review',
+    });
+    
+    // Step 2: Based on current status
+    switch (currentStatus) {
+      case 'Required Information':
+        timeline.add({
+          'title': 'Required Information',
+          'description': 'Additional documents or information needed',
+          'date': 'Updated recently',
+          'isCompleted': false,
+          'isCurrent': true,
+        });
+        break;
+        
+      case 'Approved':
+        timeline.add({
+          'title': 'Approved',
+          'description': 'Your claim has been approved for processing',
+          'date': 'Approved recently',
+          'isCompleted': true,
+          'isCurrent': false,
+        });
+        break;
+        
+      case 'Rejected':
+        timeline.add({
+          'title': 'Rejected',
+          'description': 'Your claim has been rejected',
+          'date': 'Rejected recently',
+          'isCompleted': true,
+          'isCurrent': false,
+        });
+        break;
+        
+      case 'Settled':
+        timeline.add({
+          'title': 'Approved',
+          'description': 'Your claim has been approved for processing',
+          'date': 'Approved recently',
+          'isCompleted': true,
+          'isCurrent': false,
+        });
+        break;
+        
+      default:
+        // For Under Review status, no second step
+        break;
+    }
+    
+    // Step 3: Settled (only if approved or settled)
+    if (currentStatus == 'Approved' || currentStatus == 'Settled') {
+      timeline.add({
+        'title': 'Settled',
+        'description': 'Payment has been processed and settled',
+        'date': currentStatus == 'Settled' ? 'Settled recently' : 'Pending settlement',
+        'isCompleted': currentStatus == 'Settled',
+        'isCurrent': currentStatus == 'Approved',
+      });
+    }
+    
+    return timeline;
   }
 
   // Upload Document Dialog for Required Information status
@@ -1274,6 +1301,33 @@ class _MyClaimsPageState extends State<MyClaimsPage> {
                       ],
                     ),
                     const SizedBox(height: 8),
+                    if (claim['shortfallNo'] != null && claim['shortfallNo'].toString().isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 4),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            AppText(
+                              text: 'Shortfall No: ',
+                              size: 12,
+                              weight: FontWeight.w600,
+                              textColor: isDarkMode
+                                  ? AppConstants.whiteColor
+                                  : AppConstants.blackColor,
+                            ),
+                            Expanded(
+                              child: AppText(
+                                text: claim['shortfallNo'].toString(),
+                                size: 12,
+                                weight: FontWeight.normal,
+                                textColor: isDarkMode
+                                    ? AppConstants.whiteColor.withOpacity(0.8)
+                                    : AppConstants.blackColor.withOpacity(0.7),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     if (claim['shortfallCategory'] != null && claim['shortfallCategory'].toString().isNotEmpty)
                       Padding(
                         padding: const EdgeInsets.only(bottom: 4),
@@ -1325,6 +1379,45 @@ class _MyClaimsPageState extends State<MyClaimsPage> {
                           ),
                         ],
                       ),
+                    // Download Letter Button - Show only when status is Approved or Paid/Settled
+                    if (claim['status'] != null && 
+                        (claim['status'].toString().toLowerCase() == 'approved' ||
+                         claim['status'].toString().toLowerCase() == 'paid') &&
+                        claim['letterLink'] != null && 
+                        claim['letterLink'].toString().isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      InkWell(
+                        onTap: () => _downloadShortfallLetter(claim['letterLink'].toString()),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                          decoration: BoxDecoration(
+                            color: AppConstants.primaryColor.withOpacity(0.5),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(
+                              color: AppConstants.primaryColor,
+                              width: 1,
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.download,
+                                color: AppConstants.primaryColor,
+                                size: 16,
+                              ),
+                              const SizedBox(width: 6),
+                              AppText(
+                                text: 'Download Letter',
+                                size: 12,
+                                weight: FontWeight.w600,
+                                textColor: AppConstants.primaryColor,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -1648,6 +1741,31 @@ class _MyClaimsPageState extends State<MyClaimsPage> {
     if (bytes < 1024) return '$bytes B';
     if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
     return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+  }
+
+  // Download shortfall letter
+  Future<void> _downloadShortfallLetter(String letterLink) async {
+    try {
+      if (letterLink.isEmpty) {
+        ToastMessage.failedToast('Download link not available');
+        return;
+      }
+
+      final Uri url = Uri.parse(letterLink);
+      
+      if (await canLaunchUrl(url)) {
+        await launchUrl(
+          url,
+          mode: LaunchMode.externalApplication,
+        );
+        ToastMessage.successToast('Opening document...');
+      } else {
+        ToastMessage.failedToast('Could not open download link');
+      }
+    } catch (e) {
+      debugPrint('❌ Error downloading shortfall letter: $e');
+      ToastMessage.failedToast('Failed to download document');
+    }
   }
 
   // Sort claims based on selected criteria

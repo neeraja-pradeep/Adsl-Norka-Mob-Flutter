@@ -162,7 +162,7 @@ class VerificationService {
     try {
       var dio = await DioHelper.getInstance();
       var response = await dio.post(
-        '$VidalBaseURL/enrollment/create',
+        '$VidalBaseURL/vidal/enrollment/create',
         data: data,
       );
       print("user logged in : ${response.data}");
@@ -187,7 +187,7 @@ class VerificationService {
     try {
       var dio = await DioHelper.getInstance();
       var response = await dio.post(
-        '$VidalBaseURL/enrollment/validate',
+        '$VidalBaseURL/vidal/enrollment/validate',
         data: data,
       );
       print("user logged in : ${response.data}");
@@ -244,7 +244,7 @@ class VerificationService {
       
       var dio = await DioHelper.getInstance();
       var response = await dio.get(
-        '$FamilyBaseURL/nrk-otp/user/details/$nrkId/',
+        '$FamilyBaseURL/nrk-otp/user/details/$nrkId/', 
       );
       
       print("User details response: ${response.data}");

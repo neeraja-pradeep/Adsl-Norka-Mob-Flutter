@@ -1159,7 +1159,8 @@ class _FamilyDetailsConfirmPageState extends State<FamilyDetailsConfirmPage> {
 
       // Prepare Razorpay options
       var options = {
-        'key': 'rzp_test_R9THzwql6lKlIL',
+        // 'key': 'rzp_live_RKf8kP58RPmwkc', 
+         'key': 'rzp_test_R9THzwql6lKlIL',
         'amount': premiumAmount * 100,
         'currency': 'INR',
         'name': 'Norka Care',
@@ -1170,8 +1171,7 @@ class _FamilyDetailsConfirmPageState extends State<FamilyDetailsConfirmPage> {
           'email': emailId.isNotEmpty ? emailId : 'customer@example.com',
           'name': userName,
         },
-        'theme': {'color': '#004EA1'}, // Using app primary color
-        'timeout': 900,
+        'theme': {'color': '#004EA1'},
         'retry': {'enabled': true, 'max_count': 3},
       };
 

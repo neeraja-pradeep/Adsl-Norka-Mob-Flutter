@@ -1,17 +1,22 @@
+import 'package:fluttertoast/fluttertoast.dart';
 import 'package:norkacare_app/screen/homepage_widgets/welcome_section.dart';
 import 'package:norkacare_app/screen/homepage_widgets/quick_overview.dart';
 import 'package:norkacare_app/screen/homepage_widgets/documents.dart';
 import 'package:norkacare_app/screen/profile/customer_support_page.dart';
+import 'package:norkacare_app/screen/profile/profile_widgets/landbot_chat_page.dart';
 import 'package:norkacare_app/utils/constants.dart';
 import 'package:norkacare_app/widgets/app_text.dart';
 import 'package:norkacare_app/widgets/shimmer_widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:liquid_pull_to_refresh/liquid_pull_to_refresh.dart';
 import 'package:provider/provider.dart';
+import 'package:dio/dio.dart';
 import 'package:norkacare_app/provider/norka_provider.dart';
 import 'package:norkacare_app/provider/verification_provider.dart';
 import 'package:norkacare_app/provider/claim_provider.dart';
+import 'package:norkacare_app/services/document_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
 
 class Homepage extends StatefulWidget {
   const Homepage({super.key});
@@ -108,6 +113,10 @@ class _HomepageState extends State<Homepage> {
         debugPrint('=== DASHBOARD: Pull-to-refresh fetching claims data ===');
         await claimProvider.fetchClaimDependentInfo(norkaId: norkaId);
         
+        // Refresh documents data
+        debugPrint('=== DASHBOARD: Pull-to-refresh fetching documents data ===');
+        await _fetchAndCacheDocuments(norkaId);
+        
         debugPrint('=== DASHBOARD: Pull-to-refresh completed successfully ===');
       }
     } catch (e) {
@@ -200,9 +209,34 @@ class _HomepageState extends State<Homepage> {
           debugPrint('=== DASHBOARD: Claims API call failed, using cached data: $e ===');
           // Cached data already loaded above
         }
+
+        // Fetch and cache documents for offline access
+        debugPrint('=== DASHBOARD: Fetching documents data ===');
+        try {
+          await _fetchAndCacheDocuments(norkaId);
+          debugPrint('=== DASHBOARD: Documents data loaded successfully ===');
+        } catch (e) {
+          debugPrint('=== DASHBOARD: Documents API call failed: $e ===');
+        }
       }
     } catch (e) {
       debugPrint('Error preloading user data with unified API: $e');
+    }
+  }
+
+  Future<void> _fetchAndCacheDocuments(String norkaId) async {
+    try {
+      final response = await DocumentService.fetchDocuments(norkaId);
+      
+      if (response['status'] == 'success') {
+        // Save to SharedPreferences
+        final prefs = await SharedPreferences.getInstance();
+        final encodedDocs = jsonEncode(response['data'] ?? []);
+        await prefs.setString('documents_$norkaId', encodedDocs);
+        debugPrint('💾 Cached ${response['count'] ?? 0} documents for offline access');
+      }
+    } catch (e) {
+      debugPrint('Error fetching and caching documents: $e');
     }
   }
 
@@ -311,20 +345,12 @@ class _HomepageState extends State<Homepage> {
           const SizedBox(height: 12),
           Row(
             children: [
-              Expanded(
-                child: _buildActionCard(
-                  title: 'Track Claim',
-                  icon: Icons.payment,
-                  color: AppConstants.primaryColor,
-                  onTap: () {},
-                ),
-              ),
-              const SizedBox(width: 12),
+              
               Expanded(
                 child: _buildActionCard(
                   title: 'Contact Support',
                   icon: Icons.support_agent,
-                  color: AppConstants.orangeColor,
+                  color: AppConstants.greenColor,
                   onTap: () {
                     Navigator.push(
                       context,
@@ -333,6 +359,17 @@ class _HomepageState extends State<Homepage> {
                       ),
                     );
                   },
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildActionCard(
+                  title: 'AI chat',
+                  icon: Icons.smart_toy,
+                  color: AppConstants.orangeColor,
+                    onTap: () {
+                    _launchLiveChat();
+                    },
                 ),
               ),
             ],
@@ -401,4 +438,43 @@ class _HomepageState extends State<Homepage> {
       ),
     );
   }
+    void _launchLiveChat() async {
+    // Check internet connectivity first
+    bool hasInternet = await _checkInternetConnection();
+    
+    if (!hasInternet) {
+      Fluttertoast.showToast(
+        msg: "No internet connection. Please check your network and try again.",
+        toastLength: Toast.LENGTH_LONG,
+        gravity: ToastGravity.BOTTOM,
+        backgroundColor: Colors.red,
+        textColor: Colors.white,
+      );
+      return;
+    }
+    
+    // If internet is available, launch the chat
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const LandBotChatPage()),
+    );
+  }
+
+   // Method to check internet connectivity
+  Future<bool> _checkInternetConnection() async {
+    try {
+      final dio = Dio();
+      // Set timeout for the request
+      dio.options.connectTimeout = const Duration(seconds: 5);
+      dio.options.receiveTimeout = const Duration(seconds: 5);
+      
+      // Try to make a simple request to a reliable endpoint
+      final response = await dio.get('https://www.google.com');
+      return response.statusCode == 200;
+    } catch (e) {
+      // If any error occurs, assume no internet
+      return false;
+    }
+  }
+
 }

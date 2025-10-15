@@ -44,13 +44,17 @@ class VerificationProvider extends ChangeNotifier {
             debugPrint('Enrollment info loaded from SharedPreferences');
           }
           
-          // Extract payment info
-          if (userDetails['razorpay_payments'] != null) {
+          // Extract payment info - always extract if payment-related fields exist
+          if (userDetails['razorpay_payments'] != null || 
+              userDetails['bulk_upload_info'] != null || 
+              userDetails['premium_breakdown'] != null) {
             _paymentHistory = {
-              'payments': userDetails['razorpay_payments'],
-              'total_payments_count': userDetails['total_payments_count'],
-              'total_paid_amount': userDetails['total_paid_amount'],
+              'payments': userDetails['razorpay_payments'] ?? [],
+              'total_payments_count': userDetails['total_payments_count'] ?? 0,
+              'total_paid_amount': userDetails['total_paid_amount'] ?? 0.0,
               'last_payment_date': userDetails['last_payment_date'],
+              'bulk_upload_info': userDetails['bulk_upload_info'],
+              'premium_breakdown': userDetails['premium_breakdown'],
             };
             _hasPaymentHistoryLoadedOnce = true;
             debugPrint('Payment info loaded from SharedPreferences');
@@ -1407,13 +1411,17 @@ class VerificationProvider extends ChangeNotifier {
           debugPrint('Enrollment info extracted: $_enrollmentDetails');
         }
         
-        // Extract payment info
-        if (userDetails['razorpay_payments'] != null) {
+        // Extract payment info - always extract if payment-related fields exist
+        if (userDetails['razorpay_payments'] != null || 
+            userDetails['bulk_upload_info'] != null || 
+            userDetails['premium_breakdown'] != null) {
           _paymentHistory = {
-            'payments': userDetails['razorpay_payments'],
-            'total_payments_count': userDetails['total_payments_count'],
-            'total_paid_amount': userDetails['total_paid_amount'],
+            'payments': userDetails['razorpay_payments'] ?? [],
+            'total_payments_count': userDetails['total_payments_count'] ?? 0,
+            'total_paid_amount': userDetails['total_paid_amount'] ?? 0.0,
             'last_payment_date': userDetails['last_payment_date'],
+            'bulk_upload_info': userDetails['bulk_upload_info'],
+            'premium_breakdown': userDetails['premium_breakdown'],
           };
           _hasPaymentHistoryLoadedOnce = true;
           debugPrint('Payment info extracted: $_paymentHistory');

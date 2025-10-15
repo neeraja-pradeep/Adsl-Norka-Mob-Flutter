@@ -21,19 +21,23 @@ class _TransactionDetailsPageState extends State<TransactionDetailsPage> {
   Widget build(BuildContext context) {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
 
+    // Check if this is a bulk upload payment
+    final isBulkUpload = widget.transaction['is_bulk_upload'] == true;
+
     // Parse the transaction data
     final rzpPayload =
         widget.transaction['rzp_payload'] as Map<String, dynamic>? ?? {};
     final status = rzpPayload['status'] as String? ?? 'unknown';
     final amount = widget.transaction['amount'] as int? ?? 0;
-    final method = widget.transaction['method'] as String? ?? 'unknown';
     final createdAt = widget.transaction['created_at'] as String? ?? '';
     final transactionId = widget.transaction['payment_id']?.toString() ?? '';
-    final pgTransactionId =
-        widget.transaction['rzp_payload']?['id']?.toString() ?? '';
 
-    // Check if this is a failed payment
-    final isFailedPayment = rzpPayload.isEmpty || status != 'captured';
+    // Get bulk upload details if available
+    final bulkUploadDetails =
+        widget.transaction['bulk_upload_details'] as Map<String, dynamic>?;
+
+    // Check if this is a failed payment (but not bulk upload)
+    final isFailedPayment = !isBulkUpload && (rzpPayload.isEmpty || status != 'captured');
 
     // Format amount to Indian currency
     final formattedAmount = '₹${(amount / 100).toStringAsFixed(2)}';
@@ -43,18 +47,21 @@ class _TransactionDetailsPageState extends State<TransactionDetailsPage> {
     if (createdAt.isNotEmpty) {
       try {
         final dateTime = DateTime.parse(createdAt);
-        final indianTime = dateTime.toUtc().add(
-          const Duration(hours: 5, minutes: 30),
-        );
-        formattedDate =
-            '${indianTime.day.toString().padLeft(2, '0')} ${_getMonthName(indianTime.month)}, ${indianTime.hour.toString().padLeft(2, '0')}:${indianTime.minute.toString().padLeft(2, '0')} ${indianTime.hour >= 12 ? 'PM' : 'AM'}';
+        // For bulk uploads, show only date
+        if (isBulkUpload) {
+          formattedDate =
+              '${dateTime.day.toString().padLeft(2, '0')} ${_getMonthName(dateTime.month)} ${dateTime.year}';
+        } else {
+          final indianTime = dateTime.toUtc().add(
+            const Duration(hours: 5, minutes: 30),
+          );
+          formattedDate =
+              '${indianTime.day.toString().padLeft(2, '0')} ${_getMonthName(indianTime.month)}, ${indianTime.hour.toString().padLeft(2, '0')}:${indianTime.minute.toString().padLeft(2, '0')} ${indianTime.hour >= 12 ? 'PM' : 'AM'}';
+        }
       } catch (e) {
         formattedDate = 'Invalid Date';
       }
     }
-
-    // Format payment method
-    final formattedMethod = method.toUpperCase();
 
     return Scaffold(
       backgroundColor: isDarkMode
@@ -137,15 +144,19 @@ class _TransactionDetailsPageState extends State<TransactionDetailsPage> {
                       vertical: 6,
                     ),
                     decoration: BoxDecoration(
-                      color: isFailedPayment
-                          ? AppConstants.redColor
-                          : AppConstants.greenColor,
+                      color: isBulkUpload
+                          ? AppConstants.primaryColor
+                          : (isFailedPayment
+                              ? AppConstants.redColor
+                              : AppConstants.greenColor),
                       borderRadius: BorderRadius.circular(5),
                     ),
                     child: AppText(
-                      text: isFailedPayment
-                          ? 'Payment Failed'
-                          : 'Payment Successful',
+                      text: isBulkUpload
+                          ? 'Payment Successful'
+                          : (isFailedPayment
+                              ? 'Payment Failed'
+                              : 'Payment Successful'),
                       size: 10,
                       weight: FontWeight.w500,
                       textColor: AppConstants.whiteColor,
@@ -207,13 +218,17 @@ class _TransactionDetailsPageState extends State<TransactionDetailsPage> {
                     width: 24,
                     height: 24,
                     decoration: BoxDecoration(
-                      color: isFailedPayment
-                          ? AppConstants.redColor
-                          : AppConstants.greenColor,
+                      color: isBulkUpload
+                          ? AppConstants.primaryColor
+                          : (isFailedPayment
+                              ? AppConstants.redColor
+                              : AppConstants.greenColor),
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
-                      isFailedPayment ? Icons.close : Icons.check,
+                      isBulkUpload
+                          ? Icons.payments
+                          : (isFailedPayment ? Icons.close : Icons.check),
                       color: AppConstants.whiteColor,
                       size: 16,
                     ),
@@ -224,9 +239,11 @@ class _TransactionDetailsPageState extends State<TransactionDetailsPage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         AppText(
-                          text: isFailedPayment
-                              ? 'Payment To Norka Care Failed'
-                              : 'Payment To Norka Care Successful',
+                          text: isBulkUpload
+                              ? 'Enrollment Fee Payment'
+                              : (isFailedPayment
+                                  ? 'Payment To Norka Care Failed'
+                                  : 'Payment To Norka Care Successful'),
                           size: 16,
                           weight: FontWeight.w600,
                           textColor: isDarkMode
@@ -254,6 +271,43 @@ class _TransactionDetailsPageState extends State<TransactionDetailsPage> {
               const SizedBox(height: 16),
 
               _buildTransactionIdRow('Policy Number', policyNumber, isDarkMode),
+
+              // // Show bulk upload details if available
+              // if (isBulkUpload && bulkUploadDetails != null) ...[
+              //   const SizedBox(height: 24),
+              //   AppText(
+              //     text: 'Bulk Upload Information',
+              //     size: 16,
+              //     weight: FontWeight.w600,
+              //     textColor: isDarkMode
+              //         ? AppConstants.whiteColor
+              //         : AppConstants.blackColor,
+              //   ),
+              //   const SizedBox(height: 12),
+              //   _buildTransactionIdRow(
+              //     'Association',
+              //     bulkUploadDetails['association']?.toString() ?? 'N/A',
+              //     isDarkMode,
+              //   ),
+              //   const SizedBox(height: 12),
+              //   _buildTransactionIdRow(
+              //     'Location',
+              //     bulkUploadDetails['association_location']?.toString() ?? 'N/A',
+              //     isDarkMode,
+              //   ),
+              //   const SizedBox(height: 12),
+              //   _buildTransactionIdRow(
+              //     'Country',
+              //     bulkUploadDetails['country']?.toString() ?? 'N/A',
+              //     isDarkMode,
+              //   ),
+              //   const SizedBox(height: 12),
+              //   _buildTransactionIdRow(
+              //     'City',
+              //     bulkUploadDetails['city']?.toString() ?? 'N/A',
+              //     isDarkMode,
+              //   ),
+              // ],
 
               const SizedBox(height: 32),
 

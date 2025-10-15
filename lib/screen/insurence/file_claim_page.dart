@@ -10,6 +10,7 @@ import 'package:norkacare_app/provider/hospital_provider.dart';
 import 'package:norkacare_app/provider/claim_provider.dart';
 import 'package:norkacare_app/provider/norka_provider.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:dio/dio.dart';
 
 class FileClaimPage extends StatefulWidget {
   const FileClaimPage({super.key});
@@ -71,6 +72,10 @@ class _FileClaimPageState extends State<FileClaimPage> {
   PlatformFile? selectedFile; // Store selected file before upload
   bool isFileUploaded = false; // Track if file is uploaded
   String uploadedFileId = ''; // Store the file ID from upload response
+  
+  // IFSC verification state
+  bool isVerifyingIfsc = false;
+  bool isIfscVerified = false;
 
  
 
@@ -445,8 +450,9 @@ class _FileClaimPageState extends State<FileClaimPage> {
     
     // Get states from hospital provider
     List<Map<String, dynamic>> states = [];
-    if (hospitalProvider.statesDetails['data'] != null) {
-      states = List<Map<String, dynamic>>.from(hospitalProvider.statesDetails['data']);
+    if (hospitalProvider.statesDetails['data'] != null && 
+        hospitalProvider.statesDetails['data']['data'] != null) {
+      states = List<Map<String, dynamic>>.from(hospitalProvider.statesDetails['data']['data']);
     }
     
     return Container(
@@ -531,8 +537,10 @@ class _FileClaimPageState extends State<FileClaimPage> {
     
     // Get cities from hospital provider
     List<Map<String, dynamic>> cities = [];
-    if (hospitalProvider.citiesDetails['data'] != null && selectedStateId.isNotEmpty) {
-      cities = List<Map<String, dynamic>>.from(hospitalProvider.citiesDetails['data']);
+    if (hospitalProvider.citiesDetails['data'] != null && 
+        hospitalProvider.citiesDetails['data']['data'] != null && 
+        selectedStateId.isNotEmpty) {
+      cities = List<Map<String, dynamic>>.from(hospitalProvider.citiesDetails['data']['data']);
     }
     
     return Container(
@@ -765,6 +773,48 @@ class _FileClaimPageState extends State<FileClaimPage> {
           onChanged: (String? newValue) {
             setState(() {
               selectedMainHospitalizationClaim = newValue;
+              
+              // Auto-fill DOA and DOD from selected main hospitalization claim
+              if (newValue != null && newValue.isNotEmpty) {
+                // Find the selected claim from existing claims
+                final selectedClaim = existingClaims.firstWhere(
+                  (claim) {
+                    String claimNumber = (claim['claimNumber'] ?? claim['claimId'] ?? '').toString();
+                    return newValue.startsWith(claimNumber);
+                  },
+                  orElse: () => {},
+                );
+                
+                if (selectedClaim.isNotEmpty) {
+                  // Extract dates from the main claim
+                  String? doa = selectedClaim['doa'];
+                  String? dod = selectedClaim['dod'];
+                  
+                  debugPrint('=== AUTO-FILLING DATES FROM MAIN HOSPITALIZATION ===');
+                  debugPrint('Main Claim DOA: $doa');
+                  debugPrint('Main Claim DOD: $dod');
+                  
+                  // Parse and set admission date
+                  if (doa != null && doa.isNotEmpty) {
+                    try {
+                      admissionDate = _parseDateString(doa);
+                      debugPrint('Admission date set to: $admissionDate');
+                    } catch (e) {
+                      debugPrint('Error parsing admission date: $e');
+                    }
+                  }
+                  
+                  // Parse and set discharge date
+                  if (dod != null && dod.isNotEmpty) {
+                    try {
+                      dischargeDate = _parseDateString(dod);
+                      debugPrint('Discharge date set to: $dischargeDate');
+                    } catch (e) {
+                      debugPrint('Error parsing discharge date: $e');
+                    }
+                  }
+                }
+              }
             });
           },
           dropdownColor: isDarkMode
@@ -886,8 +936,11 @@ class _FileClaimPageState extends State<FileClaimPage> {
         return;
       }
       
-      // Validate account numbers match
-      if (accountNumberController.text != reEnterAccountNumberController.text) {
+      // Validate account numbers match (remove spaces for comparison)
+      String accountNum = accountNumberController.text.replaceAll(' ', '');
+      String reEnterAccountNum = reEnterAccountNumberController.text.replaceAll(' ', '');
+      
+      if (accountNum != reEnterAccountNum) {
         ToastMessage.failedToast('Account numbers do not match');
         return;
       }
@@ -1217,6 +1270,10 @@ class _FileClaimPageState extends State<FileClaimPage> {
       // Build request body based on claim type
       Map<String, dynamic> requestBody;
       
+      // Clean account number and IFSC code (remove spaces)
+      String cleanAccountNumber = accountNumberController.text.replaceAll(' ', '');
+      String cleanIfscCode = ifscCodeController.text.replaceAll(' ', '').toUpperCase();
+      
       if (selectedClaimType == 'Pre Post Hospitalization') {
         // Pre Post Hospitalization body
         String mainClaimId = _getMainClaimIdFromSelection();
@@ -1241,27 +1298,29 @@ class _FileClaimPageState extends State<FileClaimPage> {
           "bankDetails": {
             "accountHolderName": accountHolderNameController.text,
             "accountType": selectedAccountType ?? "",
-            "accountNo": accountNumberController.text,
-            "ifscCode": ifscCodeController.text
+            "accountNo": cleanAccountNumber,
+            "ifscCode": cleanIfscCode
           },
           "fileId": fileId,
           "mainClaimNo": mainClaimId
         };
       } else {
         // Hospitalization or Daycare body
-        String typeOfClaim = selectedClaimType == 'Hospitalization' 
-            ? 'Main hospitalization claim' 
-            : 'Main daycare claim';
+        String typeOfClaim = 'Main hospitalization claim'; // Same for both hospitalization and daycare
+        String claimSubType = selectedClaimType == 'Hospitalization' 
+            ? 'Hospitalization' 
+            : 'Day Care';
         
         debugPrint('=== HOSPITALIZATION/DAYCARE CLAIM ===');
         debugPrint('Selected Claim Type: $selectedClaimType');
         debugPrint('Type of Claim: $typeOfClaim');
+        debugPrint('Claim Sub Type: $claimSubType');
             
         requestBody = {
           "policyNo": "760100/NORKA ROOTS/BASE",
           "dependentUniqueId": enrollmentNumber,
           "typeOfClaim": typeOfClaim,
-          "claimSubType": "Hospitalization",  // Always "Hospitalization" for both Hospitalization and Daycare
+          "claimSubType": claimSubType,
           "requestedAmount": claimAmountController.text,
           "ailmentType": "Non covid",
           "admissionDate": _formatDateForAPI(admissionDate!),
@@ -1278,8 +1337,8 @@ class _FileClaimPageState extends State<FileClaimPage> {
           "bankDetails": {
             "accountHolderName": accountHolderNameController.text,
             "accountType": selectedAccountType ?? "",
-            "accountNo": accountNumberController.text,
-            "ifscCode": ifscCodeController.text
+            "accountNo": cleanAccountNumber,
+            "ifscCode": cleanIfscCode
           },
           "fileId": fileId
         };
@@ -1380,6 +1439,46 @@ class _FileClaimPageState extends State<FileClaimPage> {
   // Format date for API (DD-MM-YYYY format)
   String _formatDateForAPI(DateTime date) {
     return '${date.day.toString().padLeft(2, '0')}-${date.month.toString().padLeft(2, '0')}-${date.year}';
+  }
+
+  // Parse date string from various formats to DateTime
+  DateTime? _parseDateString(String dateString) {
+    if (dateString.isEmpty) return null;
+    
+    try {
+      // Handle DD/MM/YYYY format
+      if (dateString.contains('/')) {
+        List<String> parts = dateString.split('/');
+        if (parts.length == 3) {
+          int day = int.parse(parts[0]);
+          int month = int.parse(parts[1]);
+          int year = int.parse(parts[2]);
+          return DateTime(year, month, day);
+        }
+      }
+      
+      // Handle DD-MM-YYYY format
+      if (dateString.contains('-') && dateString.split('-')[0].length <= 2) {
+        List<String> parts = dateString.split('-');
+        if (parts.length == 3) {
+          int day = int.parse(parts[0]);
+          int month = int.parse(parts[1]);
+          int year = int.parse(parts[2]);
+          return DateTime(year, month, day);
+        }
+      }
+      
+      // Handle YYYY-MM-DD format
+      if (dateString.contains('-') && dateString.split('-')[0].length == 4) {
+        return DateTime.parse(dateString);
+      }
+      
+      // Try parsing as ISO format
+      return DateTime.parse(dateString);
+    } catch (e) {
+      debugPrint('Error parsing date string: $dateString - $e');
+      return null;
+    }
   }
 
   // void _showSavedBankAccounts() {
@@ -1566,8 +1665,9 @@ class _FileClaimPageState extends State<FileClaimPage> {
     
     // Fetch hospitals for selected state and city
     final requestData = {
-      'stateId': selectedStateId,
-      'cityID': selectedCityId,
+      'hospital_name': '',
+      'state_id': selectedStateId,
+      'city_id': selectedCityId,
     };
     
     // Show loading dialog while fetching
@@ -1587,9 +1687,13 @@ class _FileClaimPageState extends State<FileClaimPage> {
       List<Map<String, dynamic>> hospitals = [];
       if (hospitalProvider.hospitalResponse != null &&
           hospitalProvider.hospitalResponse!['data'] != null) {
-        hospitals = List<Map<String, dynamic>>.from(
-          hospitalProvider.hospitalResponse!['data'],
-        );
+        // Check if data is already a List (direct array) or nested in another 'data' key
+        var data = hospitalProvider.hospitalResponse!['data'];
+        if (data is List) {
+          hospitals = List<Map<String, dynamic>>.from(data);
+        } else if (data is Map && data['data'] != null && data['data'] is List) {
+          hospitals = List<Map<String, dynamic>>.from(data['data']);
+        }
       }
       
       if (hospitals.isEmpty) {
@@ -1837,6 +1941,80 @@ class _FileClaimPageState extends State<FileClaimPage> {
   //     );
   //   }
   // }
+
+  // Verify IFSC Code and auto-fetch bank details
+  Future<void> _verifyIfscCode() async {
+    final ifscCode = ifscCodeController.text.trim().toUpperCase();
+    
+    // Validate IFSC format
+    if (ifscCode.isEmpty) {
+      ToastMessage.failedToast('Please enter IFSC code');
+      return;
+    }
+    
+    if (ifscCode.length != 11) {
+      ToastMessage.failedToast('IFSC code must be 11 characters');
+      return;
+    }
+    
+    // Validate IFSC format: First 4 letters, 5th is 0, last 6 alphanumeric
+    final ifscRegex = RegExp(r'^[A-Z]{4}0[A-Z0-9]{6}$');
+    if (!ifscRegex.hasMatch(ifscCode)) {
+      ToastMessage.failedToast('Invalid IFSC format.');
+      return;
+    }
+    
+    setState(() {
+      isVerifyingIfsc = true;
+      isIfscVerified = false;
+    });
+
+    try {
+      debugPrint('=== Verifying IFSC Code: $ifscCode ===');
+      
+      final dio = Dio();
+      final response = await dio.get(
+        'https://ifsc.razorpay.com/$ifscCode',
+        options: Options(
+          validateStatus: (status) => status != null && status < 500,
+        ),
+      );
+
+      if (response.statusCode == 200 && response.data != null) {
+        debugPrint('✅ IFSC Verification Success: ${response.data}');
+        
+        final data = response.data;
+        
+        setState(() {
+          // Auto-fill bank name and branch name
+          bankNameController.text = data['BANK'] ?? '';
+          branchNameController.text = data['BRANCH'] ?? '';
+          isIfscVerified = true;
+          isVerifyingIfsc = false;
+        });
+        
+        // ToastMessage.successToast('IFSC verified successfully');
+      } else {
+        debugPrint('❌ IFSC Verification Failed: Invalid IFSC code');
+        
+        setState(() {
+          isIfscVerified = false;
+          isVerifyingIfsc = false;
+        });
+        
+        ToastMessage.failedToast('Invalid IFSC code.');
+      }
+    } catch (e) {
+      debugPrint('❌ IFSC Verification Error: $e');
+      
+      setState(() {
+        isIfscVerified = false;
+        isVerifyingIfsc = false;
+      });
+      
+      ToastMessage.failedToast('Invalid IFSC code. Please check and try again.');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -2191,10 +2369,24 @@ class _FileClaimPageState extends State<FileClaimPage> {
                     return 'Please enter account number';
                   }
                   
-                 
-                  if (!RegExp(r'^[0-9]+$').hasMatch(value)) {
+                  // Remove any spaces
+                  String cleanValue = value.replaceAll(' ', '');
+                  
+                  // Check if contains only numbers
+                  if (!RegExp(r'^[0-9]+$').hasMatch(cleanValue)) {
                     return 'Account number must contain only numbers';
                   }
+                  
+                  // Check minimum length (usually 9 digits)
+                  if (cleanValue.length < 9) {
+                    return 'Account number must be at least 9 digits';
+                  }
+                  
+                  // Check maximum length (usually 18 digits)
+                  if (cleanValue.length > 18) {
+                    return 'Account number cannot exceed 18 digits';
+                  }
+                  
                   return null;
                 },
               ),
@@ -2254,7 +2446,12 @@ class _FileClaimPageState extends State<FileClaimPage> {
                   if (value == null || value.isEmpty) {
                     return 'Please re-enter account number';
                   }
-                  if (value != accountNumberController.text) {
+                  
+                  // Remove spaces from both values for comparison
+                  String cleanValue = value.replaceAll(' ', '');
+                  String cleanAccountNumber = accountNumberController.text.replaceAll(' ', '');
+                  
+                  if (cleanValue != cleanAccountNumber) {
                     return 'Account numbers do not match';
                   }
                   return null;
@@ -2263,63 +2460,136 @@ class _FileClaimPageState extends State<FileClaimPage> {
               
               const SizedBox(height: 12),
               
-              // IFSC Code
+              // IFSC Code with Verify Button
               _buildLabel('IFSC Code *'),
               const SizedBox(height: 6),
-              TextFormField(
-                controller: ifscCodeController,
-                textCapitalization: TextCapitalization.characters,
-                cursorColor: AppConstants.primaryColor,
-                style: TextStyle(
-                  fontSize: 16,
-                  color: isDarkMode
-                      ? AppConstants.whiteColor
-                      : AppConstants.blackColor,
-                ),
-                decoration: InputDecoration(
-                  filled: true,
-                  fillColor: isDarkMode
-                      ? AppConstants.boxBlackColor
-                      : AppConstants.whiteColor,
-                  hintText: 'Enter IFSC code',
-                  hintStyle: TextStyle(color: AppConstants.greyColor),
-                   contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(
-                      color: isDarkMode
-                          ? Colors.white.withOpacity(0.1)
-                          : AppConstants.primaryColor.withOpacity(0.5),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: TextFormField(
+                      controller: ifscCodeController,
+                      textCapitalization: TextCapitalization.characters,
+                      cursorColor: AppConstants.primaryColor,
+                      maxLength: 11,
+                      onChanged: (value) {
+                        // Reset verification status when IFSC changes
+                        if (isIfscVerified) {
+                          setState(() {
+                            isIfscVerified = false;
+                          });
+                        }
+                      },
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: isDarkMode
+                            ? AppConstants.whiteColor
+                            : AppConstants.blackColor,
+                      ),
+                      decoration: InputDecoration(
+                        filled: true,
+                        fillColor: isDarkMode
+                            ? AppConstants.boxBlackColor
+                            : AppConstants.whiteColor,
+                        hintText: 'Enter IFSC code',
+                        hintStyle: TextStyle(color: AppConstants.greyColor),
+                        counterText: '',
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(
+                            color: isDarkMode
+                                ? Colors.white.withOpacity(0.1)
+                                : AppConstants.primaryColor.withOpacity(0.5),
+                          ),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(
+                            color: AppConstants.primaryColor,
+                            width: 1.6,
+                          ),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(
+                            color: isIfscVerified 
+                                ? Colors.green
+                                : (isDarkMode
+                                    ? Colors.white.withOpacity(0.1)
+                                    : AppConstants.primaryColor.withOpacity(0.5)),
+                          ),
+                        ),
+                        prefixIcon: Icon(
+                          Icons.code,
+                          color: AppConstants.primaryColor,
+                        ),
+                        suffixIcon: isIfscVerified 
+                            ? Icon(
+                                Icons.check_circle,
+                                color: Colors.green,
+                                size: 20,
+                              )
+                            : null,
+                      ),
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Please enter IFSC code';
+                        }
+                        
+                        // Remove spaces and convert to uppercase for validation
+                        String ifsc = value.replaceAll(' ', '').toUpperCase();
+                        
+                        // Check length
+                        if (ifsc.length != 11) {
+                          return 'IFSC must be 11 characters';
+                        }
+                        
+                        // Validate IFSC format: First 4 letters, 5th is 0, last 6 alphanumeric
+                        // Pattern: ^[A-Z]{4}0[A-Z0-9]{6}$
+                        final ifscRegex = RegExp(r'^[A-Z]{4}0[A-Z0-9]{6}$');
+                        if (!ifscRegex.hasMatch(ifsc)) {
+                          return 'Invalid IFSC format';
+                        }
+                        
+                        return null;
+                      },
                     ),
                   ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(
-                      color: AppConstants.primaryColor,
-                      width: 1.6,
+                  const SizedBox(width: 8),
+                  Container(
+                    height: 48,
+                    child: ElevatedButton(
+                      onPressed: isVerifyingIfsc ? null : _verifyIfscCode,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: isIfscVerified 
+                            ? Colors.green 
+                            : AppConstants.primaryColor,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                      ),
+                      child: isVerifyingIfsc
+                          ? SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  AppConstants.whiteColor,
+                                ),
+                              ),
+                            )
+                          : AppText(
+                              text: isIfscVerified ? 'Verified' : 'Verify',
+                              size: 14,
+                              weight: FontWeight.w600,
+                              textColor: AppConstants.whiteColor,
+                            ),
                     ),
                   ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(
-                      color: isDarkMode
-                          ? Colors.white.withOpacity(0.1)
-                          : AppConstants.primaryColor.withOpacity(0.5),
-                    ),
-                  ),
-                  prefixIcon: Icon(
-                    Icons.code,
-                    color: AppConstants.primaryColor,
-                  ),
-                ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please enter IFSC code';
-                  }
-                  
-                 
-                  return null;
-                },
+                ],
               ),
               
               const SizedBox(height: 12),
@@ -2341,7 +2611,7 @@ class _FileClaimPageState extends State<FileClaimPage> {
                   fillColor: isDarkMode
                       ? AppConstants.boxBlackColor
                       : AppConstants.whiteColor,
-                hintText: 'Enter bank name',
+                  hintText: isIfscVerified ? 'Auto-filled from IFSC' : 'Enter bank name or verify IFSC',
                   hintStyle: TextStyle(color: AppConstants.greyColor),
                   contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   border: OutlineInputBorder(
@@ -2402,9 +2672,9 @@ class _FileClaimPageState extends State<FileClaimPage> {
                   fillColor: isDarkMode
                       ? AppConstants.boxBlackColor
                       : AppConstants.whiteColor,
-                hintText: 'Enter branch name',
+                  hintText: isIfscVerified ? 'Auto-filled from IFSC' : 'Enter branch name or verify IFSC',
                   hintStyle: TextStyle(color: AppConstants.greyColor),
-                   contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide(
@@ -3670,25 +3940,39 @@ class _FileClaimPageState extends State<FileClaimPage> {
     required String dateType,
     required String placeholder,
   }) {
+    // Check if this is for pre-post hospitalization and dates are auto-filled
+    bool isReadOnly = selectedClaimType == 'Pre Post Hospitalization' && 
+                     selectedMainHospitalizationClaim != null && 
+                     selectedMainHospitalizationClaim!.isNotEmpty &&
+                     (dateType == 'admission' || dateType == 'discharge');
+    
     return InkWell(
-      onTap: () => _selectDate(context, dateType),
+      onTap: isReadOnly ? null : () => _selectDate(context, dateType),
       child: Container(
         padding: const EdgeInsets.symmetric(
           horizontal: 16,
           vertical: 12,
         ),
         decoration: BoxDecoration(
-          color: isDarkMode
-              ? AppConstants.boxBlackColor
-              : AppConstants.whiteColor,
+          color: isReadOnly 
+              ? (isDarkMode 
+                  ? AppConstants.boxBlackColor.withOpacity(0.5)
+                  : Colors.grey.withOpacity(0.1))
+              : (isDarkMode
+                  ? AppConstants.boxBlackColor
+                  : AppConstants.whiteColor),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isDarkMode
-                ? Colors.white.withOpacity(0.1)
-                : AppConstants.primaryColor.withOpacity(0.5),
+            color: isReadOnly
+                ? (isDarkMode
+                    ? Colors.white.withOpacity(0.05)
+                    : Colors.grey.withOpacity(0.3))
+                : (isDarkMode
+                    ? Colors.white.withOpacity(0.1)
+                    : AppConstants.primaryColor.withOpacity(0.5)),
             width: 1,
           ),
-          boxShadow: [
+          boxShadow: isReadOnly ? null : [
             BoxShadow(
               color: isDarkMode
                   ? Colors.black.withOpacity(0.2)
@@ -3703,22 +3987,34 @@ class _FileClaimPageState extends State<FileClaimPage> {
           children: [
             Icon(
               Icons.calendar_today,
-              color: AppConstants.primaryColor,
+              color: isReadOnly 
+                  ? AppConstants.greyColor.withOpacity(0.6)
+                  : AppConstants.primaryColor,
               size: 20,
             ),
             const SizedBox(width: 16),
-            AppText(
-              text: selectedDate != null
-                  ? '${selectedDate.day}/${selectedDate.month}/${selectedDate.year}'
-                  : placeholder,
-              size: 16,
-              weight: FontWeight.normal,
-              textColor: selectedDate != null
-                  ? (isDarkMode
-                        ? AppConstants.whiteColor
-                        : AppConstants.blackColor)
-                  : AppConstants.greyColor,
+            Expanded(
+              child: AppText(
+                text: selectedDate != null
+                    ? '${selectedDate.day}/${selectedDate.month}/${selectedDate.year}'
+                    : placeholder,
+                size: 16,
+                weight: FontWeight.normal,
+                textColor: isReadOnly
+                    ? AppConstants.greyColor.withOpacity(0.7)
+                    : (selectedDate != null
+                        ? (isDarkMode
+                            ? AppConstants.whiteColor
+                            : AppConstants.blackColor)
+                        : AppConstants.greyColor),
+              ),
             ),
+            if (isReadOnly)
+              Icon(
+                Icons.lock,
+                color: AppConstants.greyColor.withOpacity(0.6),
+                size: 16,
+              ),
           ],
         ),
       ),

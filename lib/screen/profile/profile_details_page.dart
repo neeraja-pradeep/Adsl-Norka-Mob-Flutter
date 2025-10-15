@@ -1,3 +1,4 @@
+import 'package:norkacare_app/networking/baseurl.dart';
 import 'package:norkacare_app/provider/verification_provider.dart';
 import 'package:norkacare_app/utils/constants.dart';
 import 'package:norkacare_app/widgets/app_text.dart';
@@ -10,6 +11,10 @@ import 'dart:io';
 import 'package:provider/provider.dart';
 import '../../provider/norka_provider.dart';
 import 'package:intl_phone_field/intl_phone_field.dart';
+import 'package:dio/dio.dart';
+import 'package:norkacare_app/support/dio_helper.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 
 class ProfileDetailsPage extends StatefulWidget {
@@ -680,21 +685,6 @@ class _ProfileDetailsPageState extends State<ProfileDetailsPage> {
                   _pickImage(ImageSource.gallery);
                 },
               ),
-              if (_profileImage != null) ...[
-                ListTile(
-                  leading: Icon(Icons.delete, color: AppConstants.redColor),
-                  title: AppText(
-                    text: 'Remove Photo',
-                    size: 16,
-                    weight: FontWeight.w500,
-                    textColor: AppConstants.redColor,
-                  ),
-                  onTap: () {
-                    Navigator.pop(context);
-                    _removeProfileImage();
-                  },
-                ),
-              ],
               const SizedBox(height: 20),
             ],
           ),
@@ -713,28 +703,174 @@ class _ProfileDetailsPageState extends State<ProfileDetailsPage> {
       );
 
       if (image != null && mounted) {
-        setState(() {
-          _profileImage = File(image.path);
-        });
+        // Show loading dialog
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (BuildContext context) {
+            return Dialog(
+              backgroundColor: Colors.transparent,
+              child: Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).brightness == Brightness.dark
+                      ? AppConstants.boxBlackColor
+                      : AppConstants.whiteColor,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    CircularProgressIndicator(
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        AppConstants.primaryColor,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    AppText(
+                      text: 'Uploading profile picture...',
+                      size: 16,
+                      weight: FontWeight.w500,
+                      textColor: Theme.of(context).brightness == Brightness.dark
+                          ? AppConstants.whiteColor
+                          : AppConstants.blackColor,
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
 
-        // Show success message
-        ToastMessage.successToast('Profile picture updated successfully!');
+        // Upload to server
+        final uploaded = await _uploadProfilePicture(File(image.path));
+        
+        // Close loading dialog
+        if (mounted) Navigator.of(context).pop();
+
+        if (uploaded) {
+          // Refresh dashboard data to get updated profile picture URL
+          final norkaProvider = Provider.of<NorkaProvider>(context, listen: false);
+          final verificationProvider = Provider.of<VerificationProvider>(context, listen: false);
+          
+          if (norkaProvider.norkaId.isNotEmpty) {
+            await verificationProvider.getUserDetailsForDashboard(norkaProvider.norkaId);
+          }
+
+          // Update local state and rebuild widget
+          if (mounted) {
+            setState(() {
+              _profileImage = File(image.path);
+            });
+          }
+
+          // ToastMessage.successToast('Profile picture updated successfully!');
+        } else {
+          ToastMessage.failedToast('Failed to upload profile picture');
+        }
       }
     } catch (e) {
-      // Show error message
+      // Close loading dialog if open
+      if (mounted && Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      }
+      
       if (mounted) {
         ToastMessage.failedToast('Failed to pick image. Please try again.');
       }
     }
   }
 
-  void _removeProfileImage() {
-    setState(() {
-      _profileImage = null;
-    });
+  Future<bool> _uploadProfilePicture(File imageFile) async {
+    try {
+      final norkaProvider = Provider.of<NorkaProvider>(context, listen: false);
+      final nrkId = norkaProvider.norkaId;
+      
+      if (nrkId.isEmpty) {
+        debugPrint('❌ NORKA ID not available');
+        return false;
+      }
 
-    // Show success message
-    ToastMessage.successToast('Profile picture removed successfully!');
+      debugPrint('=== UPLOADING PROFILE PICTURE ===');
+      debugPrint('NRK ID: $nrkId');
+      debugPrint('File path: ${imageFile.path}');
+
+      // Get Dio instance
+      final dio = await DioHelper.getInstance();
+
+      // Create form data
+      final formData = FormData.fromMap({
+        'nrk_id_no': nrkId,
+        'profile_picture': await MultipartFile.fromFile(
+          imageFile.path,
+          filename: 'profile_picture.jpg',
+        ),
+      });
+
+      // Make PUT request
+      final response = await dio.put(
+        '$FamilyBaseURL/nrk-otp/user/update/profile-picture/',
+        data: formData,
+      );
+
+      debugPrint('=== PROFILE PICTURE UPLOAD RESPONSE ===');
+      debugPrint('Status Code: ${response.statusCode}');
+      debugPrint('Response: ${response.data}');
+
+      if (response.statusCode == 200 && response.data['success'] == true) {
+        debugPrint('✅ Profile picture uploaded successfully');
+        
+        // Save the new profile picture URL to SharedPreferences for offline access
+        final newProfilePictureUrl = response.data['data']?['profile_picture_url'] ?? 
+                                   response.data['profile_picture_url'];
+        if (newProfilePictureUrl != null && newProfilePictureUrl.isNotEmpty) {
+          _saveProfilePictureUrlToPrefs(newProfilePictureUrl);
+        }
+        
+        return true;
+      } else {
+        debugPrint('❌ Profile picture upload failed');
+        return false;
+      }
+    } catch (e) {
+      debugPrint('❌ Error uploading profile picture: $e');
+      return false;
+    }
+  }
+
+  // Save profile picture URL to SharedPreferences for offline access
+  Future<void> _saveProfilePictureUrlToPrefs(String url) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('profile_picture_url', url);
+      debugPrint('✅ Profile picture URL saved to SharedPreferences: $url');
+    } catch (e) {
+      debugPrint('❌ Error saving profile picture URL: $e');
+    }
+  }
+
+  // Load profile picture URL from SharedPreferences
+  Future<String?> _loadProfilePictureUrlFromPrefs() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final url = prefs.getString('profile_picture_url');
+      debugPrint('📱 Profile picture URL loaded from SharedPreferences: $url');
+      return url;
+    } catch (e) {
+      debugPrint('❌ Error loading profile picture URL: $e');
+      return null;
+    }
+  }
+
+  // Clear profile picture URL from SharedPreferences (for logout)
+  static Future<void> clearProfilePictureUrlFromPrefs() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('profile_picture_url');
+      debugPrint('🗑️ Profile picture URL cleared from SharedPreferences');
+    } catch (e) {
+      debugPrint('❌ Error clearing profile picture URL: $e');
+    }
   }
 
   String _formatDOB(String dob) {
@@ -836,8 +972,8 @@ class _ProfileDetailsPageState extends State<ProfileDetailsPage> {
         centerTitle: true,
         systemOverlayStyle: SystemUiOverlayStyle.light,
       ),
-      body: Consumer<NorkaProvider>(
-        builder: (context, norkaProvider, child) {
+      body: Consumer2<NorkaProvider, VerificationProvider>(
+        builder: (context, norkaProvider, verificationProvider, child) {
           // Extract dynamic profile details from provider
           final profileDetails = _extractProfileDetails(context);
 
@@ -873,6 +1009,24 @@ class _ProfileDetailsPageState extends State<ProfileDetailsPage> {
 
   Widget _buildProfileHeader(String name, String customerId) {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    
+    // Get profile picture URL from API response first, then fallback to SharedPreferences
+    String? profilePictureUrl;
+    final verificationProvider = Provider.of<VerificationProvider>(context, listen: false);
+    final unifiedResponse = verificationProvider.getUnifiedApiResponse();
+    
+    if (unifiedResponse != null && 
+        unifiedResponse['user_details'] != null && 
+        unifiedResponse['user_details']['nrk_user'] != null) {
+      profilePictureUrl = unifiedResponse['user_details']['nrk_user']['profile_picture'];
+      debugPrint('Profile picture URL from API: $profilePictureUrl');
+      
+      // Save to SharedPreferences for offline access if URL is available
+      if (profilePictureUrl != null && profilePictureUrl.isNotEmpty) {
+        _saveProfilePictureUrlToPrefs(profilePictureUrl);
+      }
+    }
+    
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20),
       padding: const EdgeInsets.all(20),
@@ -904,30 +1058,92 @@ class _ProfileDetailsPageState extends State<ProfileDetailsPage> {
             children: [
               GestureDetector(
                 // onTap: _showImagePickerDialog,
-                child: Container(
-                  width: 80,
-                  height: 80,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: AppConstants.primaryColor.withOpacity(0.1),
-                    border: Border.all(
-                      color: AppConstants.primaryColor,
-                      width: 3,
-                    ),
-                    image: _profileImage != null
-                        ? DecorationImage(
-                            image: FileImage(_profileImage!),
+                child: FutureBuilder<String?>(
+                  future: profilePictureUrl != null && profilePictureUrl.isNotEmpty 
+                      ? Future.value(profilePictureUrl)
+                      : _loadProfilePictureUrlFromPrefs(),
+                  builder: (context, snapshot) {
+                    final imageUrl = snapshot.data ?? profilePictureUrl;
+                    
+                    if (imageUrl != null && imageUrl.isNotEmpty)
+                        return ClipOval(
+                          child: CachedNetworkImage(
+                            imageUrl: imageUrl,
+                            width: 80,
+                            height: 80,
                             fit: BoxFit.cover,
-                          )
-                        : null,
-                  ),
-                  child: _profileImage == null
-                      ? Icon(
-                          Icons.person,
-                          size: 40,
-                          color: AppConstants.primaryColor,
-                        )
-                      : null,
+                            // Enhanced offline support
+                            cacheManager: null, // Use default cache manager
+                            maxWidthDiskCache: 200,
+                            maxHeightDiskCache: 200,
+                            memCacheWidth: 200,
+                            memCacheHeight: 200,
+                            placeholder: (context, url) => Container(
+                              width: 80,
+                              height: 80,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: Colors.transparent,
+                                // border: Border.all(
+                                //   color: AppConstants.primaryColor,
+                                //   width: 3,
+                                // ),
+                              ),
+                              // child: Icon(
+                              //   Icons.person,
+                              //   size: 40,
+                              //   color: AppConstants.primaryColor,
+                              // ),
+                            ),
+                            errorWidget: (context, url, error) {
+                              debugPrint('❌ Profile image error: $error');
+                              return Container(
+                                width: 80,
+                                height: 80,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: AppConstants.primaryColor.withOpacity(0.1),
+                                  border: Border.all(
+                                    color: AppConstants.primaryColor,
+                                    width: 3,
+                                  ),
+                                ),
+                                child: Icon(
+                                  Icons.person,
+                                  size: 40,
+                                  color: AppConstants.primaryColor,
+                                ),
+                              );
+                            },
+                          ),
+                        );
+                    else
+                        return Container(
+                          width: 80,
+                          height: 80,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: AppConstants.primaryColor.withOpacity(0.1),
+                            border: Border.all(
+                              color: AppConstants.primaryColor,
+                              width: 3,
+                            ),
+                            image: _profileImage != null
+                                ? DecorationImage(
+                                    image: FileImage(_profileImage!),
+                                    fit: BoxFit.cover,
+                                  )
+                                : null,
+                          ),
+                          child: _profileImage == null
+                              ? Icon(
+                                  Icons.person,
+                                  size: 40,
+                                  color: AppConstants.primaryColor,
+                                )
+                              : null,
+                        );
+                  },
                 ),
               ),
               // Edit Icon

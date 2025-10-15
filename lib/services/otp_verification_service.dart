@@ -234,4 +234,65 @@ class OtpVerificationService {
     // Default to NOT a phone number (treat as NORKA ID)
     return false;
   }
+
+  // Send OTP via WhatsApp (for phone number update)
+  static Future<Map<String, dynamic>> sendWhatsAppOtp(String phoneNumber) async {
+    try {
+      print("Sending WhatsApp OTP to: $phoneNumber");
+      
+      // Format phone number - remove + if present, should be format: 918589960592
+      String formattedPhone = phoneNumber.replaceAll('+', '');
+      
+      final requestData = {
+        "mobile_no": formattedPhone,
+        "validity_minutes": 5,
+      };
+      
+      print("WhatsApp OTP request data: $requestData");
+      
+      var dio = await DioHelper.getInstance();
+      var response = await dio.post(
+        '$FamilyBaseURL/nrk-otp/whatsapp/send-otp/',
+        data: requestData,
+      );
+      
+      print("WhatsApp OTP sent response: ${response.data}");
+      return response.data;
+    } catch (e) {
+      print("Error sending WhatsApp OTP: $e");
+      rethrow;
+    }
+  }
+
+  // Verify WhatsApp OTP (for phone number update)
+  static Future<Map<String, dynamic>> verifyWhatsAppOtp({
+    required String phoneNumber,
+    required String otp,
+  }) async {
+    try {
+      print("Verifying WhatsApp OTP for: $phoneNumber");
+      
+      // Format phone number - remove + if present, should be format: 918589960592
+      String formattedPhone = phoneNumber.replaceAll('+', '');
+      
+      final requestData = {
+        "mobile_no": formattedPhone,
+        "otp": otp,
+      };
+      
+      print("WhatsApp OTP verification request data: $requestData");
+      
+      var dio = await DioHelper.getInstance();
+      var response = await dio.post(
+        '$FamilyBaseURL/nrk-otp/whatsapp/verify-otp/',
+        data: requestData,
+      );
+      
+      print("WhatsApp OTP verification response: ${response.data}");
+      return response.data;
+    } catch (e) {
+      print("Error verifying WhatsApp OTP: $e");
+      rethrow;
+    }
+  }
 }

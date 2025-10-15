@@ -34,9 +34,25 @@ class RecentClaims extends StatelessWidget {
 
   Widget _buildClaimCard(BuildContext context, Map<String, dynamic> claim) {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-    Color statusColor = claim['status'] == 'Approved'
-        ? AppConstants.greenColor
-        : AppConstants.orangeColor;
+    Color statusColor;
+    switch (claim['status']) {
+      case 'Approved':
+        statusColor = AppConstants.greenColor;
+        break;
+      case 'Rejected':
+        statusColor = AppConstants.redColor;
+        break;
+      case 'Settled':
+      case 'Paid':
+        statusColor = AppConstants.primaryColor;
+        break;
+      case 'Required Information':
+        statusColor = AppConstants.orangeColor;
+        break;
+      default:
+        statusColor = AppConstants.orangeColor; // Under Review, In-Progress, etc.
+        break;
+    }
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),

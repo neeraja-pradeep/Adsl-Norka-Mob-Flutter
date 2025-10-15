@@ -344,4 +344,73 @@ class OtpVerificationProvider extends ChangeNotifier {
     }
     return null;
   }
+
+  // Send WhatsApp OTP (for phone number update in don't receive OTP dialog)
+  Future<bool> sendWhatsAppOtp(String phoneNumber) async {
+    _setLoading(true);
+    _errorMessage = '';
+    try {
+      debugPrint("=== SEND WHATSAPP OTP ===");
+      debugPrint("Phone Number: $phoneNumber");
+      
+      final response = await OtpVerificationService.sendWhatsAppOtp(phoneNumber);
+
+      if (response['success'] == true) {
+        _errorMessage = '';
+        debugPrint("WhatsApp OTP sent successfully");
+        debugPrint("Response: $response");
+        return true;
+      } else {
+        _errorMessage = response['message'] ?? 'Failed to send WhatsApp OTP';
+        return false;
+      }
+    } on DioException catch (e) {
+      _handleError(e);
+      return false;
+    } catch (e) {
+      _errorMessage = "An unexpected error occurred.";
+      debugPrint("General Error: $e");
+      return false;
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  // Verify WhatsApp OTP (for phone number update in don't receive OTP dialog)
+  Future<bool> verifyWhatsAppOtp({
+    required String phoneNumber,
+    required String otp,
+  }) async {
+    _setLoading(true);
+    _errorMessage = '';
+    try {
+      debugPrint("=== VERIFY WHATSAPP OTP ===");
+      debugPrint("Phone Number: $phoneNumber");
+      debugPrint("OTP: $otp");
+      
+      final response = await OtpVerificationService.verifyWhatsAppOtp(
+        phoneNumber: phoneNumber,
+        otp: otp,
+      );
+
+      if (response['success'] == true) {
+        _errorMessage = '';
+        debugPrint("WhatsApp OTP verified successfully");
+        debugPrint("Response: $response");
+        return true;
+      } else {
+        _errorMessage = response['message'] ?? 'Invalid OTP';
+        return false;
+      }
+    } on DioException catch (e) {
+      _handleError(e);
+      return false;
+    } catch (e) {
+      _errorMessage = "An unexpected error occurred.";
+      debugPrint("General Error: $e");
+      return false;
+    } finally {
+      _setLoading(false);
+    }
+  }
 }

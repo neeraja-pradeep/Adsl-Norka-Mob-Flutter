@@ -155,11 +155,20 @@ class _CustomerSupportPageState extends State<CustomerSupportPage> {
           ),
           const SizedBox(height: 12),
           _buildContactCard(
-            title: 'Email Support',
-            subtitle: 'Send us an email',
+            title: 'Technical Support Email',
+            subtitle: 'For app & technical issues',
             icon: Icons.email,
             color: AppConstants.blueColor,
-            onTap: () => _launchEmail(),
+            onTap: () => _launchTechnicalEmail(),
+            isDarkMode: isDarkMode,
+          ),
+          const SizedBox(height: 12),
+          _buildContactCard(
+            title: 'Claim Support Email',
+            subtitle: 'For claim related queries',
+            icon: Icons.email_outlined,
+            color: AppConstants.orangeColor,
+            onTap: () => _launchClaimEmail(),
             isDarkMode: isDarkMode,
           ),
 
@@ -172,15 +181,15 @@ class _CustomerSupportPageState extends State<CustomerSupportPage> {
             onTap: () => _launchWhatsApp(),
             isDarkMode: isDarkMode,
           ),
-          const SizedBox(height: 12),
-          _buildContactCard(
-            title: 'AI Live Chat',
-            subtitle: 'Chat with AI support assistant',
-            icon: Icons.smart_toy,
-            color: AppConstants.orangeColor,
-            onTap: () => _launchLiveChat(),
-            isDarkMode: isDarkMode,
-          ),
+          // const SizedBox(height: 12),
+          // _buildContactCard(
+          //   title: 'AI Live Chat',
+          //   subtitle: 'Chat with AI support assistant',
+          //   icon: Icons.smart_toy,
+          //   color: AppConstants.orangeColor,
+          //   onTap: () => _launchLiveChat(),
+          //   isDarkMode: isDarkMode,
+          // ),
         ],
       ),
     );
@@ -356,12 +365,28 @@ class _CustomerSupportPageState extends State<CustomerSupportPage> {
     }
   }
 
-  void _launchEmail() async {
-    const email = 'support.norkacare2@akshayagroup.net.in ';
+  void _launchTechnicalEmail() async {
+    const email = 'support.norkacare2@akshayagroup.net.in';
     final Uri emailUri = Uri(
       scheme: 'mailto',
       path: email,
-      query: 'subject=Customer Support Request',
+      query: 'subject=Technical Support Request',
+    );
+    if (await canLaunchUrl(emailUri)) {
+      await launchUrl(emailUri);
+    } else {
+      // ScaffoldMessenger.of(context).showSnackBar(
+      //   const SnackBar(content: Text('Could not launch email client')),
+      // );
+    }
+  }
+
+  void _launchClaimEmail() async {
+    const email = 'support.norkacare3@akshayagroup.net.in';
+    final Uri emailUri = Uri(
+      scheme: 'mailto',
+      path: email,
+      query: 'subject=Claim Support Request',
     );
     if (await canLaunchUrl(emailUri)) {
       await launchUrl(emailUri);

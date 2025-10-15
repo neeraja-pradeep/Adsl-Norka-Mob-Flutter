@@ -57,6 +57,9 @@ class AuthProvider extends ChangeNotifier {
     await prefs.remove('has_shown_documents_shimmer');
     await prefs.remove('has_shown_claims_shimmer');
     
+    // Clear cached profile picture URL
+    await prefs.remove('profile_picture_url');
+    
     // Clear cached claims data
     await prefs.remove('cached_claims_data');
     await prefs.remove('cached_dependents');

@@ -47,8 +47,9 @@ class _HospitalPageState extends State<HospitalPage> {
       context,
       listen: false,
     );
-    if (hospitalProvider.statesDetails['data'] != null) {
-      final statesData = hospitalProvider.statesDetails['data'] as List;
+    if (hospitalProvider.statesDetails['data'] != null && 
+        hospitalProvider.statesDetails['data']['data'] != null) {
+      final statesData = hospitalProvider.statesDetails['data']['data'] as List; 
       return [
         {'STATE_TYPE_ID': '', 'STATE_NAME': 'All States'},
         ...statesData,
@@ -70,8 +71,9 @@ class _HospitalPageState extends State<HospitalPage> {
       ];
     }
 
-    if (hospitalProvider.citiesDetails['data'] != null) {
-      final citiesData = hospitalProvider.citiesDetails['data'] as List;
+    if (hospitalProvider.citiesDetails['data'] != null && 
+        hospitalProvider.citiesDetails['data']['data'] != null) {
+      final citiesData = hospitalProvider.citiesDetails['data']['data'] as List;
       return [
         {'CITY_TYPE_ID': '', 'CITY_DESCRIPTION': 'All Cities'},
         ...citiesData,
@@ -89,9 +91,13 @@ class _HospitalPageState extends State<HospitalPage> {
     );
     if (hospitalProvider.hospitalResponse != null &&
         hospitalProvider.hospitalResponse!['data'] != null) {
-      return List<Map<String, dynamic>>.from(
-        hospitalProvider.hospitalResponse!['data'],
-      );
+      // Check if data is already a List (direct array) or nested in another 'data' key
+      var data = hospitalProvider.hospitalResponse!['data'];
+      if (data is List) {
+        return List<Map<String, dynamic>>.from(data);
+      } else if (data is Map && data['data'] != null && data['data'] is List) {
+        return List<Map<String, dynamic>>.from(data['data']);
+      }
     }
     return [];
   }
@@ -494,7 +500,11 @@ class _HospitalPageState extends State<HospitalPage> {
       context,
       listen: false,
     );
-    final requestData = {'stateId': selectedStateId, 'cityID': selectedCityId};
+    final requestData = {
+      'hospital_name': '',
+      'state_id': selectedStateId, 
+      'city_id': selectedCityId
+    };
     await hospitalProvider.getHospitals(requestData);
   }
 

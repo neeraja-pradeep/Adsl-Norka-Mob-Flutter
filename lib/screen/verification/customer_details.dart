@@ -562,112 +562,112 @@ class _CustomerDetailsState extends State<CustomerDetails>
                   ),
                 ),
               ),
-              const SizedBox(height: 16),
+              // const SizedBox(height: 16),
 
-              TextFormField(
-                controller: _alternatePhoneController,
-                keyboardType: TextInputType.phone,
-                style: TextStyle(
-                  color: isDarkMode
-                      ? AppConstants.whiteColor
-                      : AppConstants.blackColor,
-                ),
-                cursorColor: AppConstants.primaryColor,
-                decoration: InputDecoration(
-                  filled: true,
-                  fillColor: isDarkMode
-                      ? AppConstants.darkBackgroundColor
-                      : AppConstants.whiteBackgroundColor,
-                  labelText: 'Alternate Phone Number (Optional)',
-                  labelStyle: TextStyle(
-                    color: isDarkMode
-                        ? AppConstants.whiteColor
-                        : AppConstants.blackColor,
-                  ),
-                  hintText: 'Enter alternate phone number',
-                  hintStyle: TextStyle(color: AppConstants.greyColor),
-                  prefixIcon: Icon(
-                    Icons.phone,
-                    color: AppConstants.primaryColor,
-                  ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: BorderSide(
-                      color: isDarkMode
-                          ? AppConstants.primaryColor.withOpacity(0.5)
-                          : AppConstants.primaryColor,
-                    ),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(
-                      color: AppConstants.primaryColor,
-                      width: 1.6,
-                    ),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(
-                      color: isDarkMode
-                          ? AppConstants.primaryColor.withOpacity(0.5)
-                          : AppConstants.primaryColor,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
+              // TextFormField(
+              //   controller: _alternatePhoneController,
+              //   keyboardType: TextInputType.phone,
+              //   style: TextStyle(
+              //     color: isDarkMode
+              //         ? AppConstants.whiteColor
+              //         : AppConstants.blackColor,
+              //   ),
+              //   cursorColor: AppConstants.primaryColor,
+              //   decoration: InputDecoration(
+              //     filled: true,
+              //     fillColor: isDarkMode
+              //         ? AppConstants.darkBackgroundColor
+              //         : AppConstants.whiteBackgroundColor,
+              //     labelText: 'Alternate Phone Number (Optional)',
+              //     labelStyle: TextStyle(
+              //       color: isDarkMode
+              //           ? AppConstants.whiteColor
+              //           : AppConstants.blackColor,
+              //     ),
+              //     hintText: 'Enter alternate phone number',
+              //     hintStyle: TextStyle(color: AppConstants.greyColor),
+              //     prefixIcon: Icon(
+              //       Icons.phone,
+              //       color: AppConstants.primaryColor,
+              //     ),
+              //     border: OutlineInputBorder(
+              //       borderRadius: BorderRadius.circular(14),
+              //       borderSide: BorderSide(
+              //         color: isDarkMode
+              //             ? AppConstants.primaryColor.withOpacity(0.5)
+              //             : AppConstants.primaryColor,
+              //       ),
+              //     ),
+              //     focusedBorder: OutlineInputBorder(
+              //       borderRadius: BorderRadius.circular(12),
+              //       borderSide: BorderSide(
+              //         color: AppConstants.primaryColor,
+              //         width: 1.6,
+              //       ),
+              //     ),
+              //     enabledBorder: OutlineInputBorder(
+              //       borderRadius: BorderRadius.circular(12),
+              //       borderSide: BorderSide(
+              //         color: isDarkMode
+              //             ? AppConstants.primaryColor.withOpacity(0.5)
+              //             : AppConstants.primaryColor,
+              //       ),
+              //     ),
+              //   ),
+              // ),
+              // const SizedBox(height: 16),
 
-              TextFormField(
-                controller: _alternateEmailController,
-                keyboardType: TextInputType.emailAddress,
-                style: TextStyle(
-                  color: isDarkMode
-                      ? AppConstants.whiteColor
-                      : AppConstants.blackColor,
-                ),
-                cursorColor: AppConstants.primaryColor,
-                decoration: InputDecoration(
-                  filled: true,
-                  fillColor: isDarkMode
-                      ? AppConstants.darkBackgroundColor
-                      : AppConstants.whiteBackgroundColor,
-                  labelText: 'Alternate Email Address (Optional)',
-                  labelStyle: TextStyle(
-                    color: isDarkMode
-                        ? AppConstants.whiteColor
-                        : AppConstants.blackColor,
-                  ),
-                  hintText: 'Enter alternate email address',
-                  hintStyle: TextStyle(color: AppConstants.greyColor),
-                  prefixIcon: Icon(
-                    Icons.email,
-                    color: AppConstants.primaryColor,
-                  ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: BorderSide(
-                      color: isDarkMode
-                          ? AppConstants.primaryColor.withOpacity(0.5)
-                          : AppConstants.primaryColor,
-                    ),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(
-                      color: AppConstants.primaryColor,
-                      width: 1.6,
-                    ),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(
-                      color: isDarkMode
-                          ? AppConstants.primaryColor.withOpacity(0.5)
-                          : AppConstants.primaryColor,
-                    ),
-                  ),
-                ),
-              ),
+              // TextFormField(
+              //   controller: _alternateEmailController,
+              //   keyboardType: TextInputType.emailAddress,
+              //   style: TextStyle(
+              //     color: isDarkMode
+              //         ? AppConstants.whiteColor
+              //         : AppConstants.blackColor,
+              //   ),
+              //   cursorColor: AppConstants.primaryColor,
+              //   decoration: InputDecoration(
+              //     filled: true,
+              //     fillColor: isDarkMode
+              //         ? AppConstants.darkBackgroundColor
+              //         : AppConstants.whiteBackgroundColor,
+              //     labelText: 'Alternate Email Address (Optional)',
+              //     labelStyle: TextStyle(
+              //       color: isDarkMode
+              //           ? AppConstants.whiteColor
+              //           : AppConstants.blackColor,
+              //     ),
+              //     hintText: 'Enter alternate email address',
+              //     hintStyle: TextStyle(color: AppConstants.greyColor),
+              //     prefixIcon: Icon(
+              //       Icons.email,
+              //       color: AppConstants.primaryColor,
+              //     ),
+              //     border: OutlineInputBorder(
+              //       borderRadius: BorderRadius.circular(14),
+              //       borderSide: BorderSide(
+              //         color: isDarkMode
+              //             ? AppConstants.primaryColor.withOpacity(0.5)
+              //             : AppConstants.primaryColor,
+              //       ),
+              //     ),
+              //     focusedBorder: OutlineInputBorder(
+              //       borderRadius: BorderRadius.circular(12),
+              //       borderSide: BorderSide(
+              //         color: AppConstants.primaryColor,
+              //         width: 1.6,
+              //       ),
+              //     ),
+              //     enabledBorder: OutlineInputBorder(
+              //       borderRadius: BorderRadius.circular(12),
+              //       borderSide: BorderSide(
+              //         color: isDarkMode
+              //             ? AppConstants.primaryColor.withOpacity(0.5)
+              //             : AppConstants.primaryColor,
+              //       ),
+              //     ),
+              //   ),
+              // ),
               const SizedBox(height: 16),
 
               TextFormField(

@@ -109,13 +109,6 @@ class _MyPoliciesPageState extends State<MyPoliciesPage> {
         }
       }
       
-      // Also call dates API for specific date information
-      try {
-        await verificationProvider.getDatesDetailsWithOfflineFallback(norkaProvider.norkaId);
-      } catch (e) {
-        debugPrint('=== MY POLICIES: Dates API call failed, using cached data ===');
-        // Dates API call failed, but we might have cached data
-      }
     }
   }
 
@@ -156,19 +149,6 @@ class _MyPoliciesPageState extends State<MyPoliciesPage> {
       policyHolder = norkaProvider.response!['name'].toString();
     }
 
-    // Get dates from datesDetails API response
-    String startDate = '01/11/2025'; // Default fallback
-    String endDate = '31/10/2026'; // Default fallback
-
-    if (verificationProvider.datesDetails.isNotEmpty) {
-      startDate = _formatDateForDisplay(
-        verificationProvider.datesDetails['date_of_joining'] ?? '01/11/2025',
-      );
-      endDate = _formatDateForDisplay(
-        verificationProvider.datesDetails['date_of_exit'] ?? '31/10/2026',
-      );
-    }
-
     // Get premium amount from payment history (same as payment details page and quick overview)
     String premiumAmount = '₹0'; // Default fallback
     if (verificationProvider.paymentHistory.isNotEmpty) {
@@ -183,8 +163,6 @@ class _MyPoliciesPageState extends State<MyPoliciesPage> {
         'enrollmentNumber': enrollmentNumber,
         'policyType': 'Health Insurance',
         'provider': 'Norka Care',
-        'startDate': startDate,
-        'endDate': endDate,
         'premium': premiumAmount,
         'coverage': '₹500,000',
         'status': 'Active',
@@ -208,79 +186,75 @@ class _MyPoliciesPageState extends State<MyPoliciesPage> {
     ];
   }
 
-  /// Format date from API response (MM-dd-yyyy) to display format (dd/MM/yyyy)
-  String _formatDateForDisplay(String dateString) {
-    try {
-      if (dateString.isEmpty) {
-        return "01/01/2024"; // Default fallback
-      }
-
-      // Handle MM-dd-yyyy format from API
-      if (dateString.contains('-')) {
-        final parts = dateString.split('-');
-        if (parts.length == 3) {
-          final month = parts[0].padLeft(2, '0');
-          final day = parts[1].padLeft(2, '0');
-          final year = parts[2];
-          return '$day/$month/$year'; // Convert to dd/MM/yyyy
-        }
-      }
-
-      // Handle MM/dd/yyyy format
-      if (dateString.contains('/')) {
-        final parts = dateString.split('/');
-        if (parts.length == 3) {
-          final month = parts[0].padLeft(2, '0');
-          final day = parts[1].padLeft(2, '0');
-          final year = parts[2];
-          return '$day/$month/$year'; // Convert to dd/MM/yyyy
-        }
-      }
-
-      return dateString; // Return original if can't parse
-    } catch (e) {
-      return "01/01/2024"; // Default fallback
-    }
-  }
-
   /// Get premium amount from payment history (updated for unified API)
   String _getPremiumAmountFromPaymentHistory(Map<String, dynamic> paymentData) {
     if (paymentData.isEmpty) {
       return '₹0';
     }
 
-    // Check for unified API response structure (payments array)
+    // Priority 1: Check for successful bulk upload payment first
+    if (paymentData.containsKey('bulk_upload_info') && 
+        paymentData['bulk_upload_info'] != null &&
+        paymentData.containsKey('premium_breakdown') &&
+        paymentData['premium_breakdown'] != null) {
+      final premiumBreakdown = paymentData['premium_breakdown'] as Map<String, dynamic>;
+      
+      if (premiumBreakdown.containsKey('total_amount')) {
+        final totalAmount = premiumBreakdown['total_amount'] as num? ?? 0;
+        return '₹${totalAmount.toStringAsFixed(0)}';
+      }
+    }
+
+    // Priority 2: Check for successful Razorpay payments (unified API structure)
     if (paymentData.containsKey('payments') && paymentData['payments'] is List) {
       final transactions = paymentData['payments'] as List<dynamic>;
 
       if (transactions.isNotEmpty) {
-        // Get the latest transaction (first in the list)
+        // Look for successful transactions first
+        for (final transaction in transactions) {
+          final transactionData = transaction as Map<String, dynamic>;
+          final rzpPayload = transactionData['rzp_payload'] as Map<String, dynamic>? ?? {};
+          final status = rzpPayload['status'] as String? ?? 'unknown';
+          
+          // If we find a successful transaction, use it
+          if (status == 'captured') {
+            final amount = transactionData['amount'] as int? ?? 0;
+            final amountInRupees = amount / 100;
+            return '₹${amountInRupees.toStringAsFixed(0)}';
+          }
+        }
+        
+        // If no successful transactions found, use the latest one (even if failed)
         final latestTransaction = transactions.first as Map<String, dynamic>;
-
-        // Extract amount from transaction
         final amount = latestTransaction['amount'] as int? ?? 0;
-
-        // Convert from paise to rupees
         final amountInRupees = amount / 100;
-
         return '₹${amountInRupees.toStringAsFixed(0)}';
       }
     }
 
-    // Fallback: Check for old API response structure (data array)
+    // Priority 3: Fallback to old API response structure (data array)
     if (paymentData.containsKey('data') && paymentData['data'] is List) {
       final transactions = paymentData['data'] as List<dynamic>;
 
       if (transactions.isNotEmpty) {
-        // Get the latest transaction (first in the list)
+        // Look for successful transactions first
+        for (final transaction in transactions) {
+          final transactionData = transaction as Map<String, dynamic>;
+          final rzpPayload = transactionData['rzp_payload'] as Map<String, dynamic>? ?? {};
+          final status = rzpPayload['status'] as String? ?? 'unknown';
+          
+          // If we find a successful transaction, use it
+          if (status == 'captured') {
+            final amount = transactionData['amount'] as int? ?? 0;
+            final amountInRupees = amount / 100;
+            return '₹${amountInRupees.toStringAsFixed(0)}';
+          }
+        }
+        
+        // If no successful transactions found, use the latest one (even if failed)
         final latestTransaction = transactions.first as Map<String, dynamic>;
-
-        // Extract amount from transaction
         final amount = latestTransaction['amount'] as int? ?? 0;
-
-        // Convert from paise to rupees
         final amountInRupees = amount / 100;
-
         return '₹${amountInRupees.toStringAsFixed(0)}';
       }
     }
@@ -515,112 +489,170 @@ class _MyPoliciesPageState extends State<MyPoliciesPage> {
   Widget _buildPolicyDetailsGrid(Map<String, dynamic> policy) {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
 
-    return Column(
-      children: [
-        // First Row
-        Row(
-          children: [
-            Expanded(
-              child: _buildPolicyDetailItem(
-                'Policy Number:',
-                policy['policyNumber'],
-                isDarkMode,
-              ),
-            ),
-            Expanded(
-              child: _buildPolicyDetailItem(
-                'Start Date:',
-                policy['startDate'],
-                isDarkMode,
-              ),
-            ),
-          ],
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDarkMode
+            ? AppConstants.darkBackgroundColor.withOpacity(0.5)
+            : AppConstants.whiteBackgroundColor,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isDarkMode
+              ? AppConstants.primaryColor.withOpacity(0.2)
+              : AppConstants.primaryColor.withOpacity(0.1),
+          width: 1,
         ),
-        const SizedBox(height: 12),
-
-        // Second Row
-        Row(
-          children: [
-            Expanded(
-              child: _buildPolicyDetailItem(
-                'Enrollment Number:',
-                policy['enrollmentNumber'],
-                isDarkMode,
-              ),
-            ),
-            Expanded(
-              child: _buildPolicyDetailItem(
-                'End Date:',
-                policy['endDate'],
-                isDarkMode,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-
-        // Third Row
-        Row(
-          children: [
-            Expanded(
-              child: _buildPolicyDetailItem(
-                'Policy Type:',
-                policy['policyType'],
-                isDarkMode,
-              ),
-            ),
-            Expanded(
-              child: _buildPolicyDetailItem(
-                'Total Coverage:',
-                policy['coverage'],
-                isDarkMode,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-
-        // Fourth Row
-        Row(
-          children: [
-            Expanded(
-              child: _buildPolicyDetailItem(
-                'Provider:',
-                policy['provider'],
-                isDarkMode,
-              ),
-            ),
-            Expanded(
-              child: _buildPolicyDetailItem(
-                'Enrollment Fee:',
-                policy['premium'],
-                isDarkMode,
-              ),
-            ),
-          ],
-        ),
-      ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Policy Number - Single Row
+          _buildSingleDetailRow(
+            'Policy Number',
+            policy['policyNumber'],
+            isDarkMode,
+          ),
+          
+          const SizedBox(height: 16),
+          
+          // Second Row
+          _buildDetailRow(
+            'Enrollment Number',
+            policy['enrollmentNumber'],
+            'Policy Type',
+            policy['policyType'],
+            isDarkMode,
+          ),
+          
+          const SizedBox(height: 16),
+          
+          // Third Row
+          _buildDetailRow(
+            'Total Coverage',
+            policy['coverage'],
+            'Enrollment Fee',
+            policy['premium'],
+            isDarkMode,
+          ),
+        ],
+      ),
     );
   }
 
-  Widget _buildPolicyDetailItem(String label, String value, bool isDarkMode) {
+  Widget _buildSingleDetailRow(
+    String label,
+    String value,
+    bool isDarkMode,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         AppText(
           text: label,
-          size: 14,
-          weight: FontWeight.normal,
+          size: 12,
+          weight: FontWeight.w500,
           textColor: AppConstants.greyColor,
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: 8),
         AppText(
           text: value,
           size: 14,
-          weight: FontWeight.bold,
+          weight: FontWeight.w600,
           textColor: isDarkMode
               ? AppConstants.whiteColor
               : AppConstants.blackColor,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDetailRow(
+    String leftLabel,
+    String leftValue,
+    String rightLabel,
+    String rightValue,
+    bool isDarkMode,
+  ) {
+    return Column(
+      children: [
+        // Labels row - both labels on same line
+        Row(
+          children: [
+            // Left label
+            Expanded(
+              flex: 1,
+              child: AppText(
+                text: leftLabel,
+                size: 12,
+                weight: FontWeight.w500,
+                textColor: AppConstants.greyColor,
+              ),
+            ),
+            
+            // Divider
+            Container(
+              width: 1,
+              height: 16,
+              margin: const EdgeInsets.symmetric(horizontal: 16),
+              color: isDarkMode
+                  ? AppConstants.greyColor.withOpacity(0.3)
+                  : AppConstants.greyColor.withOpacity(0.2),
+            ),
+            
+            // Right label
+            Expanded(
+              flex: 1,
+              child: AppText(
+                text: rightLabel,
+                size: 12,
+                weight: FontWeight.w500,
+                textColor: AppConstants.greyColor,
+              ),
+            ),
+          ],
+        ),
+        
+        const SizedBox(height: 8),
+        
+        // Values row - both values on same line
+        Row(
+          children: [
+            // Left value
+            Expanded(
+              flex: 1,
+              child: AppText(
+                text: leftValue,
+                size: 14,
+                weight: FontWeight.w600,
+                textColor: isDarkMode
+                    ? AppConstants.whiteColor
+                    : AppConstants.blackColor,
+              ),
+            ),
+            
+            // Divider
+            Container(
+              width: 1,
+              height: 20,
+              margin: const EdgeInsets.symmetric(horizontal: 16),
+              color: isDarkMode
+                  ? AppConstants.greyColor.withOpacity(0.3)
+                  : AppConstants.greyColor.withOpacity(0.2),
+            ),
+            
+            // Right value
+            Expanded(
+              flex: 1,
+              child: AppText(
+                text: rightValue,
+                size: 14,
+                weight: FontWeight.w600,
+                textColor: isDarkMode
+                    ? AppConstants.whiteColor
+                    : AppConstants.blackColor,
+              ),
+            ),
+          ],
         ),
       ],
     );
@@ -658,3 +690,5 @@ class _MyPoliciesPageState extends State<MyPoliciesPage> {
     );
   }
 }
+
+

@@ -19,7 +19,7 @@ class ClaimService {
       final dio = await DioHelper.getInstance();
 
       final response = await dio.post(
-        '$VidalBaseURL/api/files/upload-url',
+        '$VidalBaseURL/vidal/files/upload-url',
         data: {
           'scope': 'Claim',
           'fileName': fileName,
@@ -224,7 +224,7 @@ class ClaimService {
       final dio = await DioHelper.getInstance();
 
       final response = await dio.post(
-        '$VidalBaseURL/api/claims/claim-dependent-info',
+        '$VidalBaseURL/vidal/claims/claim-dependent-info', 
         data: {
           'empNO': norkaId,
           'tpaCardID': '',
@@ -296,7 +296,7 @@ class ClaimService {
       final dio = await DioHelper.getInstance();
 
       final response = await dio.post(
-        '$VidalBaseURL/api/claims/submit',
+        '$VidalBaseURL/vidal/claims/submit',
         data: requestBody,
       );
 
@@ -355,7 +355,7 @@ class ClaimService {
       debugPrint('Request Body: $requestBody');
 
       final response = await dio.post(
-        '$VidalBaseURL/api/claims/shortfall',
+        '$VidalBaseURL/vidal/claims/shortfall',
         data: requestBody,
       );
 

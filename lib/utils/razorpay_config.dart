@@ -15,7 +15,7 @@ class RazorpayConfig {
   static const String ordersEndpoint = '$baseUrl/orders';
 
   // Backend API endpoints
-  static const String backendBaseUrl = 'https://adslbackend.tqdemo.website/api';
+  static const String backendBaseUrl = 'https://adslbackend.tqdemo.website/api'; 
   static const String backendOrdersEndpoint =
       '$backendBaseUrl/razorpay/orders/';
 

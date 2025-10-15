@@ -6,7 +6,7 @@ class HospitalService {
     try {
       var dio = await DioHelper.getInstance();
       var response = await dio.post(
-        '$VidalBaseURL/api/public-static/hospitals',
+        '$VidalBaseURL/vidal/public/hospitals',
         data: data,
       );
       print("user logged in : ${response.data}");
@@ -19,7 +19,7 @@ class HospitalService {
   static Future getStates() async {
     try {
       var dio = await DioHelper.getInstance();
-      var response = await dio.get('$VidalBaseURL/api/public-static/states');
+      var response = await dio.get('$VidalBaseURL/vidal/public/states');
       print("States fetched: ${response.data}");
       return response.data;
     } catch (e) {
@@ -31,7 +31,7 @@ class HospitalService {
     try {
       var dio = await DioHelper.getInstance();
       var response = await dio.get(
-        '$VidalBaseURL/api/public-static/cities?stateTypeID=$stateTypeID',
+        '$VidalBaseURL/vidal/public/cities?stateTypeId=$stateTypeID',
       );
       print("Cities fetched: ${response.data}");
       return response.data;

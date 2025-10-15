@@ -1,17 +1,20 @@
 import 'package:norkacare_app/navigation/app_navigation_bar.dart';
 import 'package:norkacare_app/screen/auth/dont_recieve_otp.dart';
-import 'package:norkacare_app/screen/profile/profile_details_page.dart';
 import 'package:norkacare_app/utils/constants.dart';
 import 'package:norkacare_app/widgets/custom_button.dart';
 import 'package:norkacare_app/widgets/toast_message.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'dart:async';
 import '../../widgets/app_text.dart';
 import 'package:provider/provider.dart';
 import '../../provider/otp_verification_provider.dart';
 import '../../provider/auth_provider.dart';
 import '../../provider/norka_provider.dart';
+import '../../provider/verification_provider.dart';
 import '../verification/customer_details.dart';
+import '../verification/payment/payment_success_page.dart';
+import 'package:pinput/pinput.dart';
 
 class OtpVarification extends StatefulWidget {
   final String customerId;
@@ -25,14 +28,10 @@ class OtpVarification extends StatefulWidget {
 
 class _OtpVarificationState extends State<OtpVarification>
     with TickerProviderStateMixin {
-  final List<TextEditingController> _otpControllers = List.generate(
-    6,
-    (index) => TextEditingController(),
-  );
-  final List<FocusNode> _focusNodes = List.generate(6, (index) => FocusNode());
+  final TextEditingController _pinController = TextEditingController();
+  final FocusNode _pinFocusNode = FocusNode();
 
   bool _isLoading = false;
-  String _enteredOtp = '';
   bool _canResendOtp = false;
   bool _isResendingOtp = false;
   int _resendCountdown = 60;
@@ -80,13 +79,7 @@ class _OtpVarificationState extends State<OtpVarification>
       // Auto-fill the OTP fields after a short delay
       Future.delayed(const Duration(milliseconds: 100), () {
         if (mounted && _autoFillOtp != null && _autoFillOtp!.length == 6) {
-          // Fill all 6 digits for 6-digit OTP
-          String otpToFill = _autoFillOtp!;
-          for (int i = 0; i < 6 && i < otpToFill.length; i++) {
-            _otpControllers[i].text = otpToFill[i];
-          }
-          _updateOtpString();
-          setState(() {});
+          _pinController.text = _autoFillOtp!;
         }
       });
     }
@@ -97,12 +90,8 @@ class _OtpVarificationState extends State<OtpVarification>
     _fadeController.dispose();
     _slideController.dispose();
     _resendTimer?.cancel();
-    for (var controller in _otpControllers) {
-      controller.dispose();
-    }
-    for (var node in _focusNodes) {
-      node.dispose();
-    }
+    _pinController.dispose();
+    _pinFocusNode.dispose();
     super.dispose();
   }
 
@@ -189,25 +178,9 @@ class _OtpVarificationState extends State<OtpVarification>
     );
   }
 
-  void _onOtpChanged(String value, int index) {
-    if (value.length == 1 && index < 5) {
-      _focusNodes[index + 1].requestFocus();
-    } else if (value.isEmpty && index > 0) {
-      _focusNodes[index - 1].requestFocus();
-    }
-
-    _updateOtpString();
-    setState(() {
-      // Trigger UI rebuild to update border colors
-    });
-  }
-
-  void _updateOtpString() {
-    _enteredOtp = _otpControllers.map((controller) => controller.text).join();
-  }
-
   Future<void> _verifyOtp() async {
-    if (_enteredOtp.length != 6) {
+    final enteredOtp = _pinController.text;
+    if (enteredOtp.length != 6) {
       ToastMessage.failedToast('Please enter a valid 6-digit OTP');
       return;
     }
@@ -223,7 +196,7 @@ class _OtpVarificationState extends State<OtpVarification>
       );
 
       // Verify OTP using API
-      final otpVerified = await otpVerificationProvider.verifyOtp(_enteredOtp);
+      final otpVerified = await otpVerificationProvider.verifyOtp(enteredOtp);
 
       if (otpVerified) {
         // ToastMessage.successToast('OTP verified successfully!');
@@ -268,20 +241,108 @@ class _OtpVarificationState extends State<OtpVarification>
                 MaterialPageRoute(builder: (context) => const AppNavigationBar()),
               );
             } else {
-              // If no enrollment found, follow normal flow to CustomerDetails
+              // If no enrollment found, check payment history
               debugPrint(
-                "No enrollment found - following normal flow to CustomerDetails",
+                "No enrollment found - checking payment history",
               );
-              Navigator.push(
+              
+              final verificationProvider = Provider.of<VerificationProvider>(
                 context,
-                MaterialPageRoute(
-                  builder: (context) => CustomerDetails(
-                    customerId: norkaId,
-                    customerData: otpVerificationProvider
-                        .getVerifiedCustomerData(),
-                  ),
-                ),
+                listen: false,
               );
+              
+              try {
+                // Check payment history
+                await verificationProvider.getPaymentHistory(norkaId);
+                
+                // Check if there's a captured payment
+                final paymentHistory = verificationProvider.paymentHistory;
+                debugPrint("Payment History Response: $paymentHistory");
+                
+                bool hasCapturedPayment = false;
+                String? emailId;
+                
+                // Check both 'payments' and 'data' fields for payment list
+                List? payments;
+                if (paymentHistory.isNotEmpty) {
+                  if (paymentHistory['payments'] != null) {
+                    payments = paymentHistory['payments'] as List;
+                  } else if (paymentHistory['data'] != null) {
+                    payments = paymentHistory['data'] as List;
+                  }
+                }
+                
+                if (payments != null && payments.isNotEmpty) {
+                  debugPrint("Total Payments: ${payments.length}");
+                  
+                  for (var payment in payments) {
+                    // Check status in rzp_payload first, then direct status field
+                    String? status;
+                    if (payment['rzp_payload'] != null && 
+                        payment['rzp_payload']['status'] != null) {
+                      status = payment['rzp_payload']['status'];
+                    } else if (payment['status'] != null) {
+                      status = payment['status'];
+                    }
+                    
+                    debugPrint("Payment Status: $status");
+                    if (status == 'captured') {
+                      hasCapturedPayment = true;
+                      debugPrint("✅ Found captured payment!");
+                      break;
+                    }
+                  }
+                }
+                
+                // Get email ID from user data
+                if (userData['emails'] != null && (userData['emails'] as List).isNotEmpty) {
+                  emailId = userData['emails'][0]['address'];
+                }
+                
+                if (hasCapturedPayment) {
+                  // Navigate directly to payment success page
+                  debugPrint(
+                    "Captured payment found - navigating to PaymentSuccessPage",
+                  );
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => PaymentSuccessPage(
+                        nrkId: norkaId,
+                        emailId: emailId,
+                      ),
+                    ),
+                  );
+                } else {
+                  // No captured payment, follow normal flow to CustomerDetails
+                  debugPrint(
+                    "No captured payment found - following normal flow to CustomerDetails",
+                  );
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => CustomerDetails(
+                        customerId: norkaId,
+                        customerData: otpVerificationProvider
+                            .getVerifiedCustomerData(),
+                      ),
+                    ),
+                  );
+                }
+              } catch (e) {
+                // If payment history check fails, continue to normal flow
+                debugPrint("Error checking payment history: $e");
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => CustomerDetails(
+                      customerId: norkaId,
+                      customerData: otpVerificationProvider
+                          .getVerifiedCustomerData(),
+                    ),
+                  ),
+                );
+              }
             }
           }
         } else {
@@ -464,52 +525,106 @@ class _OtpVarificationState extends State<OtpVarification>
               ),
               const SizedBox(height: 32),
 
-              // OTP Input Fields
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: List.generate(
-                  6,
-                  (index) => Container(
-                    width: 50,
-                    height: 60,
-                    decoration: BoxDecoration(
+              // OTP Input Field with Pinput
+              Pinput(
+                controller: _pinController,
+                focusNode: _pinFocusNode,
+                length: 6,
+                defaultPinTheme: PinTheme(
+                  width: 50,
+                  height: 60,
+                  textStyle: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: isDarkMode
+                        ? AppConstants.whiteColor
+                        : AppConstants.blackColor,
+                  ),
+                  decoration: BoxDecoration(
+                    color: isDarkMode
+                        ? AppConstants.darkBackgroundColor
+                        : Colors.white,
+                    border: Border.all(
                       color: isDarkMode
-                          ? AppConstants.darkBackgroundColor
-                          : Colors.white,
-                      border: Border.all(
-                        color: _otpControllers[index].text.isNotEmpty
-                            ? AppConstants.primaryColor
-                            : (isDarkMode
-                                  ? AppConstants.greyColor
-                                  : AppConstants.greyColor),
-                        width: 2,
-                      ),
-                      borderRadius: BorderRadius.circular(12),
+                          ? AppConstants.greyColor
+                          : AppConstants.greyColor,
+                      width: 2,
                     ),
-                    child: TextField(
-                      controller: _otpControllers[index],
-                      focusNode: _focusNodes[index],
-                      keyboardType: TextInputType.number,
-                      textAlign: TextAlign.center,
-                      maxLength: 1,
-                      cursorColor: AppConstants.primaryColor,
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: isDarkMode
-                            ? AppConstants.whiteColor
-                            : AppConstants.blackColor,
-                      ),
-                      decoration: InputDecoration(
-                        counterText: '',
-                        border: InputBorder.none,
-                        filled: true,
-                        fillColor: Colors.transparent,
-                      ),
-                      onChanged: (value) => _onOtpChanged(value, index),
-                    ),
+                    borderRadius: BorderRadius.circular(12),
                   ),
                 ),
+                focusedPinTheme: PinTheme(
+                  width: 50,
+                  height: 60,
+                  textStyle: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: isDarkMode
+                        ? AppConstants.whiteColor
+                        : AppConstants.blackColor,
+                  ),
+                  decoration: BoxDecoration(
+                    color: isDarkMode
+                        ? AppConstants.darkBackgroundColor
+                        : Colors.white,
+                    border: Border.all(
+                      color: AppConstants.primaryColor,
+                      width: 2,
+                    ),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                submittedPinTheme: PinTheme(
+                  width: 50,
+                  height: 60,
+                  textStyle: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: isDarkMode
+                        ? AppConstants.whiteColor
+                        : AppConstants.blackColor,
+                  ),
+                  decoration: BoxDecoration(
+                    color: isDarkMode
+                        ? AppConstants.darkBackgroundColor
+                        : Colors.white,
+                    border: Border.all(
+                      color: AppConstants.primaryColor,
+                      width: 2,
+                    ),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                errorPinTheme: PinTheme(
+                  width: 50,
+                  height: 60,
+                  textStyle: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: isDarkMode
+                        ? AppConstants.whiteColor
+                        : AppConstants.blackColor,
+                  ),
+                  decoration: BoxDecoration(
+                    color: isDarkMode
+                        ? AppConstants.darkBackgroundColor
+                        : Colors.white,
+                    border: Border.all(
+                      color: AppConstants.redColor,
+                      width: 2,
+                    ),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                cursor: Container(
+                  width: 2,
+                  height: 24,
+                  color: AppConstants.primaryColor,
+                ),
+                keyboardType: TextInputType.number,
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly,
+                ],
               ),
               const SizedBox(height: 32),
 
@@ -576,8 +691,23 @@ class _OtpVarificationState extends State<OtpVarification>
                     final otpResponse = otpProvider.otpResponse;
                     
                     // Extract user data from OTP response
-                    String? userName = otpResponse?['user_name'];
-                    String? nrkId = otpResponse?['nrk_id'];
+                    // For dummy API: data.verification.name and data.verification.norka_id
+                    // For real API: check both structures
+                    String? userName;
+                    String? nrkId;
+                    
+                    if (otpResponse != null) {
+                      // Try to get from dummy API structure
+                      if (otpResponse['data'] != null && otpResponse['data']['verification'] != null) {
+                        userName = otpResponse['data']['verification']['name'];
+                        nrkId = otpResponse['data']['verification']['norka_id'];
+                      }
+                      // Fallback to direct fields if available
+                      else {
+                        userName = otpResponse['user_name'] ?? otpResponse['name'];
+                        nrkId = otpResponse['nrk_id'] ?? otpResponse['norka_id'];
+                      }
+                    }
                     
                     print("=== DIALOG DATA DEBUG ===");
                     print("Full OTP Response: $otpResponse");

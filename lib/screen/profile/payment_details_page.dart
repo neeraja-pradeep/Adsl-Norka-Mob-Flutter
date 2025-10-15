@@ -16,8 +16,6 @@ class PaymentDetailsPage extends StatefulWidget {
 }
 
 class _PaymentDetailsPageState extends State<PaymentDetailsPage> {
-  static const String policyNumber = '763300/25-26/NORKACARE/001';
-
   @override
   void initState() {
     super.initState();
@@ -97,13 +95,44 @@ class _PaymentDetailsPageState extends State<PaymentDetailsPage> {
           List<dynamic> transactions = [];
           if (paymentHistory.containsKey('payments') && paymentHistory['payments'] is List) {
             // New unified API structure
-            transactions = paymentHistory['payments'] as List<dynamic>;
+            transactions = List<Map<String, dynamic>>.from(paymentHistory['payments'] as List<dynamic>);
           } else if (paymentHistory.containsKey('data') && paymentHistory['data'] is List) {
             // Old API structure
-            transactions = paymentHistory['data'] as List<dynamic>;
+            transactions = List<Map<String, dynamic>>.from(paymentHistory['data'] as List<dynamic>);
           }
 
-          print('Payment Debug - transactions: $transactions');
+          // Check for bulk upload payment
+          if (paymentHistory.containsKey('bulk_upload_info') && 
+              paymentHistory['bulk_upload_info'] != null) {
+            final bulkUploadInfo = paymentHistory['bulk_upload_info'] as Map<String, dynamic>;
+            final premiumBreakdown = paymentHistory['premium_breakdown'] as Map<String, dynamic>?;
+            
+            if (bulkUploadInfo.containsKey('pay_ref_no') && 
+                premiumBreakdown != null && 
+                premiumBreakdown.containsKey('total_amount')) {
+              
+              // Create a bulk upload transaction
+              final bulkUploadTransaction = {
+                'payment_id': bulkUploadInfo['pay_ref_no'],
+                'amount': (premiumBreakdown['total_amount'] * 100).toInt(), // Convert to paise
+                'method': 'Bulk Upload',
+                'created_at': bulkUploadInfo['date'] ?? DateTime.now().toIso8601String(),
+                'is_bulk_upload': true,
+                'rzp_payload': {
+                  'status': 'captured',
+                  'method': 'bulk_upload',
+                },
+                'bulk_upload_details': {
+                  'association': bulkUploadInfo['association'],
+                  'association_location': bulkUploadInfo['association_location'],
+                  'country': bulkUploadInfo['country'],
+                  'city': bulkUploadInfo['city'],
+                },
+              };
+              
+              transactions.add(bulkUploadTransaction);
+            }
+          }
 
           if (transactions.isEmpty) {
             return Center(
@@ -158,16 +187,19 @@ class _PaymentDetailsPageState extends State<PaymentDetailsPage> {
   Widget _buildTransactionCard(Map<String, dynamic> transaction) {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
 
+    // Check if this is a bulk upload payment
+    final isBulkUpload = transaction['is_bulk_upload'] == true;
+
     // Parse the transaction data from API response
     final rzpPayload =
         transaction['rzp_payload'] as Map<String, dynamic>? ?? {};
     final status = rzpPayload['status'] as String? ?? 'unknown';
     final amount = transaction['amount'] as int? ?? 0;
-    final method = transaction['method'] as String? ?? 'unknown';
     final createdAt = transaction['created_at'] as String? ?? '';
 
     // Check if this is a failed payment (no rzp_payload or status is not captured)
-    final isFailedPayment = rzpPayload.isEmpty || status != 'captured';
+    // But don't mark bulk uploads as failed
+    final isFailedPayment = !isBulkUpload && (rzpPayload.isEmpty || status != 'captured');
 
     // Format amount to Indian currency
     final formattedAmount = '₹${(amount / 100).toStringAsFixed(0)}';
@@ -177,25 +209,33 @@ class _PaymentDetailsPageState extends State<PaymentDetailsPage> {
     if (createdAt.isNotEmpty) {
       try {
         final dateTime = DateTime.parse(createdAt);
-        // Convert to Indian timezone (UTC+5:30)
-        final indianTime = dateTime.toUtc().add(
-          const Duration(hours: 5, minutes: 30),
-        );
-        formattedDate =
-            '${indianTime.day.toString().padLeft(2, '0')}/${indianTime.month.toString().padLeft(2, '0')}/${indianTime.year} ${indianTime.hour.toString().padLeft(2, '0')}:${indianTime.minute.toString().padLeft(2, '0')}';
+        // For bulk uploads, don't show time (only date)
+        if (isBulkUpload) {
+          formattedDate =
+              '${dateTime.day.toString().padLeft(2, '0')}/${dateTime.month.toString().padLeft(2, '0')}/${dateTime.year}';
+        } else {
+          // Convert to Indian timezone (UTC+5:30)
+          final indianTime = dateTime.toUtc().add(
+            const Duration(hours: 5, minutes: 30),
+          );
+          formattedDate =
+              '${indianTime.day.toString().padLeft(2, '0')}/${indianTime.month.toString().padLeft(2, '0')}/${indianTime.year} ${indianTime.hour.toString().padLeft(2, '0')}:${indianTime.minute.toString().padLeft(2, '0')}';
+        }
       } catch (e) {
         formattedDate = 'Invalid Date';
       }
     }
 
-    // Format payment method
-    final formattedMethod = method.toUpperCase();
-
     Color statusColor;
     String statusText;
 
+    // Handle bulk upload payments
+    if (isBulkUpload) {
+      statusColor = AppConstants.primaryColor;
+      statusText = 'Successful';
+    }
     // Handle failed payments
-    if (isFailedPayment) {
+    else if (isFailedPayment) {
       statusColor = AppConstants.redColor;
       statusText = 'Failed';
     } else {
@@ -250,16 +290,22 @@ class _PaymentDetailsPageState extends State<PaymentDetailsPage> {
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                color: isFailedPayment
-                    ? AppConstants.redColor.withOpacity(0.1)
-                    : AppConstants.greenColor.withOpacity(0.1),
+                color: isBulkUpload
+                    ? AppConstants.primaryColor.withOpacity(0.1)
+                    : (isFailedPayment
+                        ? AppConstants.redColor.withOpacity(0.1)
+                        : AppConstants.greenColor.withOpacity(0.1)),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Icon(
-                isFailedPayment ? Icons.payment : Icons.check_circle,
-                color: isFailedPayment
-                    ? AppConstants.redColor
-                    : AppConstants.greenColor,
+                isBulkUpload
+                    ? Icons.payment
+                    : (isFailedPayment ? Icons.payment : Icons.check_circle),
+                color: isBulkUpload
+                    ? AppConstants.primaryColor
+                    : (isFailedPayment
+                        ? AppConstants.redColor
+                        : AppConstants.greenColor),
                 size: 20,
               ),
             ),
@@ -312,38 +358,6 @@ class _PaymentDetailsPageState extends State<PaymentDetailsPage> {
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildDetailRow(String label, String value) {
-    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          SizedBox(
-            width: 120,
-            child: AppText(
-              text: label,
-              size: 14,
-              weight: FontWeight.w500,
-              textColor: AppConstants.greyColor,
-            ),
-          ),
-          Expanded(
-            child: AppText(
-              text: value,
-              size: 14,
-              weight: FontWeight.w400,
-              textColor: isDarkMode
-                  ? AppConstants.whiteColor
-                  : AppConstants.blackColor,
-            ),
-          ),
-        ],
       ),
     );
   }
