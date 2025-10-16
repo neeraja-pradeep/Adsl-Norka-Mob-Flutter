@@ -386,7 +386,7 @@ class _OtpVarificationState extends State<OtpVarification>
       final otpResent = await otpVerificationProvider.resendOtp();
 
       if (otpResent) {
-        ToastMessage.successToast('OTP sent successfully!');
+        // ToastMessage.successToast('OTP sent successfully!');
         // Restart the countdown
         _startResendCountdown();
       } else {

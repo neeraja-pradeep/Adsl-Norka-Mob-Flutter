@@ -149,8 +149,8 @@ class _CustomerDetailsState extends State<CustomerDetails>
           String day = parts[1].padLeft(2, '0');
           String year = parts[2];
 
-          // Convert from MM-DD-YYYY to DD-MM-YYYY
-          return '$day-$month-$year';
+          // Convert from MM-DD-YYYY to DD/MM/YYYY (with slashes)
+          return '$day/$month/$year';
         }
       } catch (e) {
         debugPrint('Error formatting DOB: $e');

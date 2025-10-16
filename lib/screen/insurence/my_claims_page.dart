@@ -274,7 +274,7 @@ class _MyClaimsPageState extends State<MyClaimsPage> {
   Widget _buildSearchAndFilterSection() {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: isDarkMode
             ? AppConstants.boxBlackColor
@@ -303,12 +303,14 @@ class _MyClaimsPageState extends State<MyClaimsPage> {
           TextField(
             controller: searchController,
             onChanged: (value) => setState(() {}),
+            cursorColor: AppConstants.primaryColor,
             style: TextStyle(
               color: isDarkMode
                   ? AppConstants.whiteColor
                   : AppConstants.blackColor,
             ),
             decoration: InputDecoration(
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               hintText: 'Search claims...',
               hintStyle: TextStyle(color: AppConstants.greyColor),
               prefixIcon: Icon(Icons.search, color: AppConstants.greyColor),
@@ -565,22 +567,35 @@ class _MyClaimsPageState extends State<MyClaimsPage> {
                 bottomRight: Radius.circular(12),
               ),
             ),
-            child: Row(
+            child: Column(
               children: [
-                Expanded(
-                  child: CustomButton(
-                    text: 'View Details',
-                    onPressed: () => 
-                    // ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('File Claim'))),
-                    _showClaimDetails(claim),
-                    color: AppConstants.primaryColor,
+                // Show Download Document button for Approved and Paid status at the top
+                if (claim['status'] != null && 
+                    claim['letterLink'] != null && 
+                    claim['letterLink'].toString().isNotEmpty &&
+                    (claim['status'].toString().toLowerCase() == 'approved' ||
+                     claim['status'].toString().toLowerCase() == 'paid')) ...[
+                  CustomButton(
+                    text: 'Download Document',
+                    onPressed: () => _downloadShortfallLetter(claim['letterLink'].toString()),
+                    color: claim['status'].toString().toLowerCase() == 'approved' 
+                        ? Colors.green 
+                        : Colors.green, // Paid = Green color
                     textColor: AppConstants.whiteColor,
                     height: 40,
                   ),
+                  const SizedBox(height: 8),
+                ],
+                // View Details button at the bottom
+                CustomButton(
+                  text: 'View Details',
+                  onPressed: () => 
+                  // ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('File Claim'))),
+                  _showClaimDetails(claim),
+                  color: AppConstants.primaryColor,
+                  textColor: AppConstants.whiteColor,
+                  height: 40,
                 ),
-        
-              
-                 
               ],
             ),
           ),
@@ -1379,10 +1394,10 @@ class _MyClaimsPageState extends State<MyClaimsPage> {
                           ),
                         ],
                       ),
-                    // Download Letter Button - Show only when status is Approved or Paid/Settled
+                    // Download Letter Button - Show for Paid/Settled and Required Information status
                     if (claim['status'] != null && 
-                        (claim['status'].toString().toLowerCase() == 'approved' ||
-                         claim['status'].toString().toLowerCase() == 'paid') &&
+                        (claim['status'].toString().toLowerCase() == 'paid' ||
+                         _getDisplayStatus(claim['status']) == 'Required Information') &&
                         claim['letterLink'] != null && 
                         claim['letterLink'].toString().isNotEmpty) ...[
                       const SizedBox(height: 12),

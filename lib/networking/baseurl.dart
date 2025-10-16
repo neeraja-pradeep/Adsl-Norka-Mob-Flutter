@@ -1,9 +1,9 @@
 // const String norkaBaseURL = "https://norkaapi.tqdemo.website/api";
 // const String norkaBaseURL = "https://sso.norkaroots.kerala.gov.in/api/v1";
 // const String norkaBaseURL1 = "https://sso.norkaroots.kerala.gov.in/api/v1";
-// const String FamilyBaseURL = "https://norka-care-backend-e2fag2g7fafrhghw.centralindia-01.azurewebsites.net/api";
-const String FamilyBaseURL = "https://adslbackend.tqdemo.website/api"; 
+const String FamilyBaseURL = "https://norka-care-backend-e2fag2g7fafrhghw.centralindia-01.azurewebsites.net/api";
+// const String FamilyBaseURL = "https://adslbackend.tqdemo.website/api"; 
 // const String FamilyBaseURL = "http://192.168.1.39:8000/api"; 
-const String VidalBaseURL = "https://devapigw.vidalhealthtpa.com/partner-integration";
+// const String VidalBaseURL = "https://devapigw.vidalhealthtpa.com/partner-integration";
 // const String VidalBaseURL = "http://192.168.1.39:8000/api";
-// const String VidalBaseURL = "https://norka-care-backend-e2fag2g7fafrhghw.centralindia-01.azurewebsites.net/api";
+ const String VidalBaseURL = "https://norka-care-backend-e2fag2g7fafrhghw.centralindia-01.azurewebsites.net/api";

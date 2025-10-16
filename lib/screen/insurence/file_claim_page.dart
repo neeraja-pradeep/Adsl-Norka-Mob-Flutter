@@ -35,6 +35,20 @@ class _FileClaimPageState extends State<FileClaimPage> {
   final TextEditingController bankNameController = TextEditingController();
   final TextEditingController branchNameController = TextEditingController();
   
+  // Focus nodes for account number fields
+  final FocusNode accountNumberFocusNode = FocusNode();
+  final FocusNode reEnterAccountNumberFocusNode = FocusNode();
+  
+  // State variables for account number masking
+  bool isAccountNumberFocused = false;
+  bool isReEnterAccountNumberFocused = false;
+  String actualAccountNumber = '';
+  String actualReEnterAccountNumber = '';
+  
+  // State for hospital mismatch warning
+  bool showHospitalMismatchWarning = false;
+  String mainClaimHospitalName = '';
+  
   // Health Insurance Fields
   final TextEditingController hospitalNameController = TextEditingController();
   final TextEditingController hospitalPinCodeController = TextEditingController();
@@ -170,6 +184,34 @@ class _FileClaimPageState extends State<FileClaimPage> {
   @override
   void initState() {
     super.initState();
+    
+    // Add focus listeners for account number masking
+    accountNumberFocusNode.addListener(() {
+      setState(() {
+        isAccountNumberFocused = accountNumberFocusNode.hasFocus;
+        if (!accountNumberFocusNode.hasFocus && actualAccountNumber.isNotEmpty) {
+          // When focus is lost, show masked version
+          accountNumberController.text = _maskAccountNumber(actualAccountNumber);
+        } else if (accountNumberFocusNode.hasFocus && actualAccountNumber.isNotEmpty) {
+          // When focused, show actual number
+          accountNumberController.text = actualAccountNumber;
+        }
+      });
+    });
+    
+    reEnterAccountNumberFocusNode.addListener(() {
+      setState(() {
+        isReEnterAccountNumberFocused = reEnterAccountNumberFocusNode.hasFocus;
+        if (!reEnterAccountNumberFocusNode.hasFocus && actualReEnterAccountNumber.isNotEmpty) {
+          // When focus is lost, show masked version
+          reEnterAccountNumberController.text = _maskAccountNumber(actualReEnterAccountNumber);
+        } else if (reEnterAccountNumberFocusNode.hasFocus && actualReEnterAccountNumber.isNotEmpty) {
+          // When focused, show actual number
+          reEnterAccountNumberController.text = actualReEnterAccountNumber;
+        }
+      });
+    });
+    
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadStatesData();
       _checkClaimHistory();
@@ -260,16 +302,42 @@ class _FileClaimPageState extends State<FileClaimPage> {
     hospitalMobileController.dispose();
     hospitalEmailController.dispose();
     doctorNameController.dispose();
+    
+    // Dispose focus nodes
+    accountNumberFocusNode.dispose();
+    reEnterAccountNumberFocusNode.dispose();
+    
     super.dispose();
   }
 
   Future<void> _selectDate(BuildContext context, String type) async {
+    // Set date restrictions based on type
+    DateTime firstDate;
+    DateTime lastDate;
+    DateTime initialDate;
+    
+    if (type == 'admission') {
+      // For admission: allow all dates but validate after selection
+      firstDate = DateTime(2020);
+      lastDate = DateTime.now();
+      initialDate = DateTime.now();
+    } else if (type == 'discharge') {
+      // For discharge: from November 1, 2025 to 1 year in future
+      firstDate = DateTime(2025, 11, 1);
+      lastDate = DateTime.now().add(const Duration(days: 365));
+      initialDate = DateTime.now();
+    } else {
+      // For other dates: default behavior
+      firstDate = DateTime(2020);
+      lastDate = DateTime.now().add(const Duration(days: 365));
+      initialDate = DateTime.now();
+    }
+    
     final DateTime? picked = await showDatePicker(
       context: context,
-      initialDate: DateTime.now(),
-      firstDate: DateTime(2020),
-            // lastDate: DateTime.now(),
-      lastDate: DateTime.now().add(const Duration(days: 365)), // Allow future dates up to 1 year
+      initialDate: initialDate,
+      firstDate: firstDate,
+      lastDate: lastDate,
       builder: (context, child) {
         final isDarkMode = Theme.of(context).brightness == Brightness.dark;
         return Theme(
@@ -291,9 +359,54 @@ class _FileClaimPageState extends State<FileClaimPage> {
         if (type == 'incident') {
           selectedDate = picked;
         } else if (type == 'admission') {
+          // Validate admission date - must be on or after November 1, 2025 and not in future
+          DateTime minAdmissionDate = DateTime(2025, 11, 1); // November 1, 2025
+          DateTime today = DateTime.now();
+          DateTime todayOnly = DateTime(today.year, today.month, today.day);
+          
+          if (picked.isBefore(minAdmissionDate)) {
+            ToastMessage.failedToast('Admission date must be on or after 01/11/2025');
+            return;
+          }
+          
+          if (picked.isAfter(todayOnly)) {
+            ToastMessage.failedToast('Admission date cannot be in the future');
+            return;
+          }
+          
           admissionDate = picked;
+          
+          // For Daycare, automatically set discharge date to same as admission date
+          if (selectedClaimType == 'Daycare') {
+            dischargeDate = picked;
+            ToastMessage.successToast('Discharge date is set to same as admission date');
+          }
         } else if (type == 'discharge') {
-          dischargeDate = picked;
+          // Check if admission date is selected first
+          if (admissionDate == null) {
+            ToastMessage.failedToast('Please select admission date first');
+            return;
+          }
+          
+          // Validate for Daycare claims - dates must be same
+          if (selectedClaimType == 'Daycare') {
+            // Check if picked date is same as admission date
+            if (picked.year == admissionDate!.year &&
+                picked.month == admissionDate!.month &&
+                picked.day == admissionDate!.day) {
+              dischargeDate = picked;
+            } else {
+              ToastMessage.failedToast('For Day Care claims, discharge date must be same as admission date');
+              return; // Don't set the date
+            }
+          } else {
+            // For other claim types, discharge date must be on or after admission date
+            if (picked.isBefore(DateTime(admissionDate!.year, admissionDate!.month, admissionDate!.day))) {
+              ToastMessage.failedToast('Discharge date cannot be before admission date');
+              return;
+            }
+            dischargeDate = picked;
+          }
         }
       });
     }
@@ -683,6 +796,10 @@ class _FileClaimPageState extends State<FileClaimPage> {
               if (newValue != 'Pre Post Hospitalization') {
                 selectedMainHospitalizationClaim = null;
               }
+              // If switching to Daycare and admission date is selected, set discharge date to same
+              if (newValue == 'Daycare' && admissionDate != null) {
+                dischargeDate = admissionDate;
+              }
             });
           },
           dropdownColor: isDarkMode
@@ -813,7 +930,18 @@ class _FileClaimPageState extends State<FileClaimPage> {
                       debugPrint('Error parsing discharge date: $e');
                     }
                   }
+                  
+                  // Extract hospital name from main claim for comparison
+                  mainClaimHospitalName = (selectedClaim['hospName'] ?? selectedClaim['hospitalName'] ?? '').toString();
+                  debugPrint('Main Claim Hospital: $mainClaimHospitalName');
+                  
+                  // Check if current hospital matches
+                  _checkHospitalMatch();
                 }
+              } else {
+                // Reset when no claim selected
+                mainClaimHospitalName = '';
+                showHospitalMismatchWarning = false;
               }
             });
           },
@@ -936,9 +1064,14 @@ class _FileClaimPageState extends State<FileClaimPage> {
         return;
       }
       
-      // Validate account numbers match (remove spaces for comparison)
-      String accountNum = accountNumberController.text.replaceAll(' ', '');
-      String reEnterAccountNum = reEnterAccountNumberController.text.replaceAll(' ', '');
+      // Validate account numbers match (use actual stored values, not masked)
+      String accountNum = actualAccountNumber.replaceAll(' ', '');
+      String reEnterAccountNum = actualReEnterAccountNumber.replaceAll(' ', '');
+      
+      if (accountNum.isEmpty || reEnterAccountNum.isEmpty) {
+        ToastMessage.failedToast('Please enter account numbers');
+        return;
+      }
       
       if (accountNum != reEnterAccountNum) {
         ToastMessage.failedToast('Account numbers do not match');
@@ -955,6 +1088,43 @@ class _FileClaimPageState extends State<FileClaimPage> {
       if (dischargeDate == null) {
         ToastMessage.failedToast('Please select discharge date');
         return;
+      }
+      
+      // Validate admission date - must be on or after November 1, 2025 and not in future
+      DateTime minAdmissionDate = DateTime(2025, 11, 1); // November 1, 2025
+      DateTime today = DateTime.now();
+      DateTime todayOnly = DateTime(today.year, today.month, today.day);
+      
+      if (admissionDate!.isBefore(minAdmissionDate)) {
+        ToastMessage.failedToast('Admission date must be on or after November 1, 2025');
+        return;
+      }
+      
+      if (admissionDate!.isAfter(todayOnly)) {
+        ToastMessage.failedToast('Admission date cannot be in the future');
+        return;
+      }
+      
+      // Validate dates
+      if (admissionDate != null && dischargeDate != null) {
+        // For Daycare: admission and discharge dates must be same
+        if (selectedClaimType == 'Daycare') {
+          if (admissionDate!.year != dischargeDate!.year ||
+              admissionDate!.month != dischargeDate!.month ||
+              admissionDate!.day != dischargeDate!.day) {
+            ToastMessage.failedToast('For Day Care claims, admission and discharge dates must be the same');
+            return;
+          }
+        } else {
+          // For other claim types: discharge date must be on or after admission date
+          DateTime admissionOnly = DateTime(admissionDate!.year, admissionDate!.month, admissionDate!.day);
+          DateTime dischargeOnly = DateTime(dischargeDate!.year, dischargeDate!.month, dischargeDate!.day);
+          
+          if (dischargeOnly.isBefore(admissionOnly)) {
+            ToastMessage.failedToast('Discharge date cannot be before admission date');
+            return;
+          }
+        }
       }
       
       // Validate state and city selection
@@ -1270,8 +1440,8 @@ class _FileClaimPageState extends State<FileClaimPage> {
       // Build request body based on claim type
       Map<String, dynamic> requestBody;
       
-      // Clean account number and IFSC code (remove spaces)
-      String cleanAccountNumber = accountNumberController.text.replaceAll(' ', '');
+      // Clean account number and IFSC code (remove spaces) - use actual account number, not masked
+      String cleanAccountNumber = actualAccountNumber.replaceAll(' ', '');
       String cleanIfscCode = ifscCodeController.text.replaceAll(' ', '').toUpperCase();
       
       if (selectedClaimType == 'Pre Post Hospitalization') {
@@ -1478,6 +1648,55 @@ class _FileClaimPageState extends State<FileClaimPage> {
     } catch (e) {
       debugPrint('Error parsing date string: $dateString - $e');
       return null;
+    }
+  }
+
+  // Mask account number to show only last 4 digits
+  String _maskAccountNumber(String accountNumber) {
+    if (accountNumber.isEmpty) return '';
+    
+    // Remove spaces
+    String cleanNumber = accountNumber.replaceAll(' ', '');
+    
+    if (cleanNumber.length <= 4) {
+      return cleanNumber;
+    }
+    
+    // Show only last 4 digits, mask the rest with X
+    String lastFour = cleanNumber.substring(cleanNumber.length - 4);
+    String masked = 'X' * (cleanNumber.length - 4) + lastFour;
+    
+    return masked;
+  }
+
+  // Check if current hospital matches main claim hospital (for Pre-Post Hospitalization)
+  void _checkHospitalMatch() {
+    if (selectedClaimType != 'Pre Post Hospitalization') {
+      setState(() {
+        showHospitalMismatchWarning = false;
+      });
+      return;
+    }
+    
+    if (mainClaimHospitalName.isEmpty || hospitalNameController.text.isEmpty) {
+      setState(() {
+        showHospitalMismatchWarning = false;
+      });
+      return;
+    }
+    
+    // Compare hospital names (case-insensitive, trimmed)
+    String currentHospital = hospitalNameController.text.trim().toLowerCase();
+    String mainHospital = mainClaimHospitalName.trim().toLowerCase();
+    
+    setState(() {
+      showHospitalMismatchWarning = currentHospital != mainHospital;
+    });
+    
+    if (showHospitalMismatchWarning) {
+      debugPrint('⚠️ Hospital Mismatch Warning:');
+      debugPrint('Main Claim Hospital: $mainClaimHospitalName');
+      debugPrint('Current Hospital: ${hospitalNameController.text}');
     }
   }
 
@@ -1721,6 +1940,9 @@ class _FileClaimPageState extends State<FileClaimPage> {
                 hospitalAddressController.text = hospital['address1'] ?? '';
                 hospitalMobileController.text = hospital['phHosp1'] ?? '';
                 hospitalEmailController.text = hospital['hospEmailID'] ?? '';
+                
+                // Check for hospital match with main claim (for Pre-Post Hospitalization)
+                _checkHospitalMatch();
               });
               Navigator.pop(context);
               // ToastMessage.successToast('Hospital selected successfully');
@@ -2131,7 +2353,7 @@ class _FileClaimPageState extends State<FileClaimPage> {
               const SizedBox(height: 12),
               
               // Enrollment ID
-              _buildLabel('Enrollment ID'),
+              _buildLabel('Norka ID'),
               const SizedBox(height: 6),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -2209,26 +2431,32 @@ class _FileClaimPageState extends State<FileClaimPage> {
                       size: 20,
                     ),
                     const SizedBox(width: 16),
-                    Consumer<VerificationProvider>(
-                      builder: (context, verificationProvider, child) {
-                        // Get user name from dashboard API response
-                        String userName = 'Loading...';
-                        final unifiedResponse = verificationProvider.getUnifiedApiResponse();
-                        if (unifiedResponse != null && 
-                            unifiedResponse['user_details'] != null &&
-                            unifiedResponse['user_details']['nrk_user'] != null) {
-                          userName = unifiedResponse['user_details']['nrk_user']['name'] ?? 'Loading...';
-                        }
-                        
-                        return AppText(
-                          text: userName,
-                          size: 16,
-                          weight: FontWeight.w600,
-                          textColor: isDarkMode
-                              ? AppConstants.whiteColor
-                              : AppConstants.blackColor,
-                        );
-                      },
+                    Expanded(
+                      child: Consumer<VerificationProvider>(
+                        builder: (context, verificationProvider, child) {
+                          // Get user name from dashboard API response
+                          String userName = 'Loading...';
+                          final unifiedResponse = verificationProvider.getUnifiedApiResponse();
+                          if (unifiedResponse != null && 
+                              unifiedResponse['user_details'] != null &&
+                              unifiedResponse['user_details']['nrk_user'] != null) {
+                            userName = unifiedResponse['user_details']['nrk_user']['name'] ?? 'Loading...';
+                          }
+                          
+                          return Text(
+                            userName,
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: isDarkMode
+                                  ? AppConstants.whiteColor
+                                  : AppConstants.blackColor,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          );
+                        },
+                      ),
                     ),
                   ],
                 ),
@@ -2320,14 +2548,22 @@ class _FileClaimPageState extends State<FileClaimPage> {
               const SizedBox(height: 6),
               TextFormField(
                 controller: accountNumberController,
+                focusNode: accountNumberFocusNode,
                 keyboardType: TextInputType.number,
                 cursorColor: AppConstants.primaryColor,
+                enableInteractiveSelection: false, // Disable copy-paste
                 style: TextStyle(
                   fontSize: 16,
                   color: isDarkMode
                       ? AppConstants.whiteColor
                       : AppConstants.blackColor,
                 ),
+                onChanged: (value) {
+                  // Store actual account number when user types
+                  if (isAccountNumberFocused) {
+                    actualAccountNumber = value;
+                  }
+                },
                 decoration: InputDecoration(
                   filled: true,
                   fillColor: isDarkMode
@@ -2363,16 +2599,29 @@ class _FileClaimPageState extends State<FileClaimPage> {
                     Icons.account_balance,
                     color: AppConstants.primaryColor,
                   ),
+                  suffixIcon: !isAccountNumberFocused && actualAccountNumber.isNotEmpty
+                      ? Icon(
+                          Icons.lock,
+                          color: AppConstants.greyColor,
+                          size: 18,
+                        )
+                      : null,
                 ),
                 validator: (value) {
-                  if (value == null || value.isEmpty) {
+                  // Use actualAccountNumber for validation
+                  String cleanValue = actualAccountNumber.replaceAll(' ', '');
+                  
+                  if (cleanValue.isEmpty) {
                     return 'Please enter account number';
                   }
                   
-                  // Remove any spaces
-                  String cleanValue = value.replaceAll(' ', '');
+                  // Check if contains only numbers (or X for masked)
+                  String unmaskedValue = cleanValue.replaceAll('X', '');
+                  if (!RegExp(r'^[0-9]+$').hasMatch(unmaskedValue) && cleanValue != value) {
+                    return 'Account number must contain only numbers';
+                  }
                   
-                  // Check if contains only numbers
+                  // For validation, use actual stored number
                   if (!RegExp(r'^[0-9]+$').hasMatch(cleanValue)) {
                     return 'Account number must contain only numbers';
                   }
@@ -2398,14 +2647,22 @@ class _FileClaimPageState extends State<FileClaimPage> {
               const SizedBox(height: 6),
               TextFormField(
                 controller: reEnterAccountNumberController,
+                focusNode: reEnterAccountNumberFocusNode,
                 keyboardType: TextInputType.number,
                 cursorColor: AppConstants.primaryColor,
+                enableInteractiveSelection: false, // Disable copy-paste
                 style: TextStyle(
                   fontSize: 16,
                   color: isDarkMode
                       ? AppConstants.whiteColor
                       : AppConstants.blackColor,
                 ),
+                onChanged: (value) {
+                  // Store actual re-enter account number when user types
+                  if (isReEnterAccountNumberFocused) {
+                    actualReEnterAccountNumber = value;
+                  }
+                },
                 decoration: InputDecoration(
                   filled: true,
                   fillColor: isDarkMode
@@ -2441,15 +2698,24 @@ class _FileClaimPageState extends State<FileClaimPage> {
                     Icons.account_balance,
                     color: AppConstants.primaryColor,
                   ),
+                  suffixIcon: !isReEnterAccountNumberFocused && actualReEnterAccountNumber.isNotEmpty
+                      ? Icon(
+                          Icons.lock,
+                          color: AppConstants.greyColor,
+                          size: 18,
+                        )
+                      : null,
                 ),
                 validator: (value) {
-                  if (value == null || value.isEmpty) {
+                  // Use actualReEnterAccountNumber for validation
+                  String cleanValue = actualReEnterAccountNumber.replaceAll(' ', '');
+                  
+                  if (cleanValue.isEmpty) {
                     return 'Please re-enter account number';
                   }
                   
-                  // Remove spaces from both values for comparison
-                  String cleanValue = value.replaceAll(' ', '');
-                  String cleanAccountNumber = accountNumberController.text.replaceAll(' ', '');
+                  // Compare with actual account number (not masked version)
+                  String cleanAccountNumber = actualAccountNumber.replaceAll(' ', '');
                   
                   if (cleanValue != cleanAccountNumber) {
                     return 'Account numbers do not match';
@@ -3001,6 +3267,40 @@ class _FileClaimPageState extends State<FileClaimPage> {
                 placeholder: 'Select discharge date',
               ),
               
+              // Info message for Daycare claims
+              if (selectedClaimType == 'Daycare') ...[
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: Colors.blue.withOpacity(0.3),
+                      width: 1,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.info_outline,
+                        color: Colors.blue,
+                        size: 18,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: AppText(
+                          text: 'For Day Care claims, discharge date is automatically set to same as admission date',
+                          size: 12,
+                          weight: FontWeight.w500,
+                          textColor: Colors.blue,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+              
               const SizedBox(height: 12),
               
               // Description
@@ -3169,12 +3469,65 @@ class _FileClaimPageState extends State<FileClaimPage> {
                 ),
               ),
               
+              // Hospital Mismatch Warning for Pre-Post Hospitalization
+              if (showHospitalMismatchWarning) ...[
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: Colors.orange.withOpacity(0.5),
+                      width: 1.5,
+                    ),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(
+                        Icons.warning_amber_rounded,
+                        color: Colors.orange,
+                        size: 22,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            AppText(
+                              text: 'Hospital Mismatch Warning',
+                              size: 14,
+                              weight: FontWeight.bold,
+                              textColor: Colors.orange,
+                            ),
+                            const SizedBox(height: 4),
+                            AppText(
+                              text: 'The selected hospital does not match the hospital from your main hospitalization claim ($mainClaimHospitalName). Please ensure you are selecting the correct hospital for your Pre-Post Hospitalization claim.',
+                              size: 12,
+                              weight: FontWeight.normal,
+                              textColor: isDarkMode
+                                  ? AppConstants.whiteColor
+                                  : AppConstants.blackColor,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+              
               const SizedBox(height: 12),
               
               _buildLabel('Hospital/Clinic Name *'),
               const SizedBox(height: 6),
               TextFormField(
                 controller: hospitalNameController,
+                onChanged: (value) {
+                  // Check hospital match whenever user types
+                  _checkHospitalMatch();
+                },
                 cursorColor: AppConstants.primaryColor,
                 style: TextStyle(
                   fontSize: 16,
@@ -3941,10 +4294,12 @@ class _FileClaimPageState extends State<FileClaimPage> {
     required String placeholder,
   }) {
     // Check if this is for pre-post hospitalization and dates are auto-filled
-    bool isReadOnly = selectedClaimType == 'Pre Post Hospitalization' && 
-                     selectedMainHospitalizationClaim != null && 
-                     selectedMainHospitalizationClaim!.isNotEmpty &&
-                     (dateType == 'admission' || dateType == 'discharge');
+    bool isReadOnly = (selectedClaimType == 'Pre Post Hospitalization' && 
+                      selectedMainHospitalizationClaim != null && 
+                      selectedMainHospitalizationClaim!.isNotEmpty &&
+                      (dateType == 'admission' || dateType == 'discharge')) ||
+                     // Also make discharge date read-only for Daycare (auto-set to admission date)
+                     (selectedClaimType == 'Daycare' && dateType == 'discharge');
     
     return InkWell(
       onTap: isReadOnly ? null : () => _selectDate(context, dateType),
@@ -3996,7 +4351,7 @@ class _FileClaimPageState extends State<FileClaimPage> {
             Expanded(
               child: AppText(
                 text: selectedDate != null
-                    ? '${selectedDate.day}/${selectedDate.month}/${selectedDate.year}'
+                    ? '${selectedDate.day.toString().padLeft(2, '0')}/${selectedDate.month.toString().padLeft(2, '0')}/${selectedDate.year}'
                     : placeholder,
                 size: 16,
                 weight: FontWeight.normal,

@@ -1159,8 +1159,7 @@ class _FamilyDetailsConfirmPageState extends State<FamilyDetailsConfirmPage> {
 
       // Prepare Razorpay options
       var options = {
-        // 'key': 'rzp_live_RKf8kP58RPmwkc', 
-         'key': 'rzp_test_R9THzwql6lKlIL',
+        'key': 'rzp_live_RKf8kP58RPmwkc',
         'amount': premiumAmount * 100,
         'currency': 'INR',
         'name': 'Norka Care',

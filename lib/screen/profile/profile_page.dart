@@ -281,13 +281,22 @@ class _ProfilePageState extends State<ProfilePage> {
         const SizedBox(height: 16),
 
         // Customer Name
-        AppText(
-          text: name,
-          size: 18,
-          weight: FontWeight.bold,
-          textColor: isDarkMode
-              ? AppConstants.whiteColor
-              : AppConstants.blackColor,
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Text(
+            name,
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: isDarkMode
+                  ? AppConstants.whiteColor
+                  : AppConstants.blackColor,
+            ),
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
         ),
 
         const SizedBox(height: 8),

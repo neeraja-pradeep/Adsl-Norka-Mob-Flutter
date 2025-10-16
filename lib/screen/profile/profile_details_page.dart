@@ -685,7 +685,7 @@ class _ProfileDetailsPageState extends State<ProfileDetailsPage> {
                   _pickImage(ImageSource.gallery);
                 },
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 40),
             ],
           ),
         );

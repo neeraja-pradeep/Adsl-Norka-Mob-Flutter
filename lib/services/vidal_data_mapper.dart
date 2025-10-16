@@ -137,7 +137,7 @@ class VidalDataMapper {
           dob = norkaResponse['date_of_birth'].toString();
           // Convert from MM/dd/yyyy to dd/MM/yyyy
           try {
-            final parts = dob.split('/');
+            final parts = dob.split('-');
             if (parts.length == 3) {
               vidalDob = '${parts[1]}/${parts[0]}/${parts[2]}';
             }
@@ -146,6 +146,11 @@ class VidalDataMapper {
           }
         }
 
+        print('=== Self Gender Debug ===');
+        print('NORKA gender: ${norkaResponse['gender']}');
+        print('Mapped gender: ${_mapGender(norkaResponse['gender'] ?? 'Male')}');
+        print('=== End Self Gender Debug ===');
+        
         dependentInfo.add({
           "cardholder_name": employeeName,
           "depedent_unique_id": selfEnrollmentNumber,
@@ -176,6 +181,7 @@ class VidalDataMapper {
         print('Spouse Name: $spouseName');
         print('Spouse DOB: $spouseDob');
         print('Spouse Gender: $spouseGender');
+        print('Mapped Spouse Gender: ${_mapGender(spouseGender)}');
 
         // Convert date format from MM-dd-yyyy to dd/MM/yyyy for Vidal
         String vidalSpouseDob = spouseDob;
@@ -198,7 +204,7 @@ class VidalDataMapper {
           // "date_of_exit": dateOfExit,
           "date_of_exit": "",
           "dob": vidalSpouseDob,
-          "gender": _mapGender(spouseGender),
+          "gender": _mapGender(spouseGender), // Map spouse gender from Family API format
           "sum_insured": "500000",
           "vidal_tpa_id": "",
           "risk_id": "",
@@ -268,7 +274,7 @@ class VidalDataMapper {
       final payload = {
         "request_id": finalRequestId,
         "corporate_name": "NORKA ROOTS",
-        "corporate_id": "N0386", // "N0626",
+        "corporate_id": "N0626", // "N0626",
         "employeeinfo": {
           "pincode": pincode,
           "address": address,
@@ -279,7 +285,7 @@ class VidalDataMapper {
           "policyinfo": [
             {
               "benefit_name": "Base policy",
-              "entity_name": "NORKA", // "N0626",
+              "entity_name": "N0626", // "N0626",
               "policy_number": "763300/25-26/NORKACARE/001",
               // "policy_number": "760100/NORKA ROOTS/BASE",
               "si_type": "Floater",
@@ -326,7 +332,7 @@ class VidalDataMapper {
       return {
         "request_id": VidalUtils.generateRequestId(),
         "corporate_name": "NORKA ROOTS",
-        "corporate_id": "N0386", // "N0626",
+        "corporate_id": "N0626", // "N0626",
         "employeeinfo": {
           "pincode": "",
           "address": "1st Floor, Tower B, Building No 8",
@@ -418,7 +424,7 @@ class VidalDataMapper {
         // "date_of_exit": dateOfExit,
         "date_of_exit": "",
         "dob": vidalChildDob,
-        "gender": _mapGender(childGender),
+        "gender": childGender, // Use childGender directly without _mapGender
         "sum_insured": "500000",
         "vidal_tpa_id": "",
         "risk_id": "",
@@ -433,13 +439,27 @@ class VidalDataMapper {
 
   /// Map gender values to expected format
   static String _mapGender(String gender) {
+    print('=== _mapGender Debug ===');
+    print('Input gender: "$gender"');
+    print('Input gender length: ${gender.length}');
+    print('Input gender bytes: ${gender.codeUnits}');
+    
     final lowerGender = gender.toLowerCase();
-    if (lowerGender.contains('male') || lowerGender.contains('m')) {
-      return 'Male';
-    } else if (lowerGender.contains('female') || lowerGender.contains('f')) {
-      return 'Female';
+    print('Lowercase gender: "$lowerGender"');
+    
+    String result;
+    if (lowerGender.contains('female') || lowerGender.contains('f')) {
+      result = 'Female';
+    } else if (lowerGender.contains('male') || lowerGender.contains('m')) {
+      result = 'Male';
+    } else {
+      result = 'Male'; // Default fallback
     }
-    return 'Male'; // Default fallback
+    
+    print('Mapped result: "$result"');
+    print('=== End _mapGender Debug ===');
+    
+    return result;
   }
 
   /// Build Vidal enrollment validation payload from available data
@@ -506,12 +526,17 @@ class VidalDataMapper {
       final selfDob = norkaResponse['date_of_birth'] ?? '';
       final selfGender = norkaResponse['gender'] ?? '';
       if (selfDob.isNotEmpty && selfUniqueId.isNotEmpty) {
+        print('=== Self Gender Debug (Validation) ===');
+        print('Raw self gender: "$selfGender"');
+        print('Mapped self gender: "${_mapGender(selfGender)}"');
+        print('=== End Self Gender Debug (Validation) ===');
+        
         dependentInfo.add(
           _buildDependentInfo(
             cardholderName: employeeName,
             dependentUniqueId: selfUniqueId,
             dob: selfDob,
-            gender: selfGender,
+            gender: _mapGender(selfGender), // Map gender before passing
             relation: 'Self',
             dateOfInception: dateOfInception,
             dateOfExit: dateOfExit,
@@ -527,12 +552,17 @@ class VidalDataMapper {
       if (spouseName.isNotEmpty &&
           spouseDob.isNotEmpty &&
           spouseUniqueId.isNotEmpty) {
+        print('=== Spouse Gender Debug ===');
+        print('Raw spouse gender: "$spouseGender"');
+        print('Mapped spouse gender: "${_mapGender(spouseGender)}"');
+        print('=== End Spouse Gender Debug ===');
+        
         dependentInfo.add(
           _buildDependentInfo(
             cardholderName: spouseName,
             dependentUniqueId: spouseUniqueId,
             dob: spouseDob,
-            gender: spouseGender,
+            gender: _mapGender(spouseGender), // Map gender before passing
             relation: 'Spouse',
             dateOfInception: dateOfInception,
             dateOfExit: dateOfExit,
@@ -570,7 +600,7 @@ class VidalDataMapper {
       final payload = {
         "request_id": requestId,
         "corporate_name": "NORKA ROOTS",
-        "corporate_id": "N0386", // "N0626",
+        "corporate_id": "N0626", // "N0626",
         "employeeinfo": {
           "pincode": pincode,
           "address": address,
@@ -581,7 +611,7 @@ class VidalDataMapper {
           "policyinfo": [
             {
               "benefit_name": "Base policy",
-              "entity_name": "NORKA", // "N0626",
+              "entity_name": "N0626", // "N0626",
               "policy_number": "763300/25-26/NORKACARE/001",
               "si_type": "Floater",
               "dependent_info": dependentInfo,
@@ -615,6 +645,11 @@ class VidalDataMapper {
     // Format DOB to DD/MM/YYYY
     String formattedDob = _formatDobForVidal(dob);
 
+    print('=== _buildDependentInfo Gender Debug ===');
+    print('Input gender: "$gender"');
+    print('Final gender: "$gender"');
+    print('=== End _buildDependentInfo Gender Debug ===');
+
     return {
       "cardholder_name": cardholderName,
       "depedent_unique_id": dependentUniqueId,
@@ -623,7 +658,7 @@ class VidalDataMapper {
       // "date_of_exit": dateOfExit,
       "date_of_exit": "",
       "dob": formattedDob,
-      "gender": _mapGender(gender),
+      "gender": gender, // Use gender directly without _mapGender
       "sum_insured": "500000",
       "vidal_tpa_id": "",
       "risk_id": "",
@@ -752,11 +787,17 @@ class VidalDataMapper {
     String relation = familyMembersDetails['kid_${childIndex}_relation'] ?? '';
     String gender = '';
     
+    print('=== Child Gender Debug ===');
+    print('Child $childIndex relation: $relation');
+    
     if (relation.toLowerCase() == 'son') {
       gender = 'Male';
     } else if (relation.toLowerCase() == 'daughter') {
       gender = 'Female';
     }
+    
+    print('Child $childIndex mapped gender: $gender');
+    print('=== End Child Gender Debug ===');
     
     return gender.isEmpty ? 'Male' : gender; // Default to Male if relation is not found
   }

@@ -15,7 +15,8 @@ class RazorpayConfig {
   static const String ordersEndpoint = '$baseUrl/orders';
 
   // Backend API endpoints
-  static const String backendBaseUrl = 'https://adslbackend.tqdemo.website/api'; 
+  // static const String backendBaseUrl = 'https://adslbackend.tqdemo.website/api'; 
+  static const String backendBaseUrl = 'https://norka-care-backend-e2fag2g7fafrhghw.centralindia-01.azurewebsites.net/api';
   static const String backendOrdersEndpoint =
       '$backendBaseUrl/razorpay/orders/';
 

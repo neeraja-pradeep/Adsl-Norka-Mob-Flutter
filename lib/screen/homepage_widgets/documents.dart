@@ -231,9 +231,9 @@ class Documents extends StatelessWidget {
             
             if (canLaunch) {
               await launchUrl(uri);
-              ToastMessage.successToast('E-Card opened successfully!');
+              // ToastMessage.successToast('E-Card opened successfully!');
             } else {
-              ToastMessage.failedToast('Cannot open E-Card URL');
+              ToastMessage.failedToast('Cannot open E-Card');
             }
           } catch (e) {
             ToastMessage.failedToast('Error opening E-Card: $e');

@@ -479,7 +479,7 @@ class _DocumentsPageState extends State<DocumentsPage> {
           
           if (canLaunch) {
             await launchUrl(uri);
-            ToastMessage.successToast('E-Card opened successfully!');
+            // ToastMessage.successToast('E-Card opened successfully!');
           } else {
             ToastMessage.failedToast('Cannot open E-Card');
           }
