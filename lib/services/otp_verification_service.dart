@@ -225,13 +225,16 @@ class OtpVerificationService {
       return false;
     }
     
-    // Phone numbers are typically 10 digits (without country code)
-    // Anything else is likely a NORKA ID
-    if (digitsOnly.length == 10) {
-      return true;
-    }
+    // IMPORTANT: 10-digit numbers can be either phone numbers OR NORKA IDs
+    // Since we can't distinguish them by length alone, we should:
+    // 1. Only treat it as a phone number if explicitly entered in the phone field
+    // 2. When entered in NORKA ID field, treat it as NORKA ID
+    // 
+    // For now, default to treating 10-digit inputs as NORKA IDs to avoid confusion
+    // Phone numbers should be entered with country code (e.g., +918589960592)
     
     // Default to NOT a phone number (treat as NORKA ID)
+    // This ensures 10-digit NORKA IDs are sent to the correct endpoint
     return false;
   }
 

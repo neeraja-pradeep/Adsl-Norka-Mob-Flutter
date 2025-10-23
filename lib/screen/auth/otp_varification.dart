@@ -140,15 +140,8 @@ class _OtpVarificationState extends State<OtpVarification>
       return 'Norka ID: $identifier';
     }
     
-    // Remove any non-digit characters for digit count
-    String digitsOnly = identifier.replaceAll(RegExp(r'\D'), '');
-    
-    // If it's exactly 10 digits, it's likely a phone number
-    if (digitsOnly.length == 10 && digitsOnly == identifier) {
-      return 'Phone: $identifier';
-    }
-    
-    // Otherwise, it's a Norka ID
+    // For all other cases (including 10-digit numbers), treat as Norka ID
+    // Phone numbers should be entered with country code (e.g., +918589960592)
     return 'Norka ID: $identifier';
   }
 
