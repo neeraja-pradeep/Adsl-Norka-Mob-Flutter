@@ -508,13 +508,14 @@ class _FamilyDetailsConfirmPageState extends State<FamilyDetailsConfirmPage> {
                                     ),
                                     GestureDetector(
                                       onTap: () {
+                                        
                                         _showPremiumBreakdownDialog(
                                           verificationProvider.premiumAmount,
                                         );
                                       },
                                       child: AppText(
                                         text:
-                                            'Get the Enrollment fee structure',
+                                            'Get Enrollment fee structure',
                                         size: 12,
                                         weight: FontWeight.w500,
                                         textColor: AppConstants.primaryColor,

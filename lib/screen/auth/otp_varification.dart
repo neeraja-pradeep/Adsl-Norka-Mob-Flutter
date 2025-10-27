@@ -720,7 +720,7 @@ class _OtpVarificationState extends State<OtpVarification>
                     );
                   },
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                     decoration: BoxDecoration(
                       border: Border.all(
                         color: AppConstants.primaryColor.withOpacity(0.3),
@@ -736,7 +736,7 @@ class _OtpVarificationState extends State<OtpVarification>
                           size: 16,
                           color: AppConstants.primaryColor,
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 1),
                         AppText(
                           text: "Don't receive OTP? Update your profile",
                           size: 14,
@@ -744,7 +744,7 @@ class _OtpVarificationState extends State<OtpVarification>
                           textColor: AppConstants.primaryColor,
                           textAlign: TextAlign.center,
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 1),
                         Icon(
                           Icons.arrow_forward_ios,
                           size: 12,

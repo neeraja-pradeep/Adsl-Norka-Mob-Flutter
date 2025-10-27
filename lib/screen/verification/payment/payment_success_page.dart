@@ -945,7 +945,7 @@ class _PaymentSuccessPageState extends State<PaymentSuccessPage>
             ToastMessage.failedToast('Cannot open E-Card');
           }
         } catch (e) {
-          ToastMessage.failedToast('Error opening E-Card: $e');
+          ToastMessage.failedToast('Cannot open E-Card');
         }
       } else {
         ToastMessage.failedToast('No E-Card  found');

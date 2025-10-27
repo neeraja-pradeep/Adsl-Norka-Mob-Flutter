@@ -79,6 +79,8 @@
 		</array>
 		<key>NSPhotoLibraryUsageDescription</key>
 		<string>This app needs access to photo library to upload documents for insurance claims and profile pictures.</string>
+		<key>NSCameraUsageDescription</key>
+        <string>This app requires camera access to capture photos and documents.</string>
 		<key>NSAppTransportSecurity</key>
 		<dict>
 			<key>NSAllowsArbitraryLoads</key>

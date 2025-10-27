@@ -1221,7 +1221,8 @@ class _AddFamilyMembersState extends State<AddFamilyMembers>
               const SizedBox(height: 22),
 
               // Proceed Button
-              if (_familyMembers.isNotEmpty || !_showAddForm)
+              // if (_familyMembers.isNotEmpty || !_showAddForm)
+              if (!_showAddForm)
                 CustomButton(
                   text: (_isLoading || verificationProvider.isLoading)
                       ? 'Processing...'
