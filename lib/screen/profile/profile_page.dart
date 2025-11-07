@@ -26,6 +26,7 @@ import '../../provider/otp_verification_provider.dart';
 import '../../provider/hospital_provider.dart';
 import '../../provider/auth_provider.dart';
 import '../../provider/claim_provider.dart';
+import '../../provider/notification_provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
 class ProfilePage extends StatefulWidget {
@@ -390,7 +391,7 @@ class _ProfilePageState extends State<ProfilePage> {
           _buildDocumentsTile(
             icon: Icons.folder_outlined,
             title: 'Documents',
-            subtitle: 'View your documents',
+            subtitle: 'Upload your documents',
             onTap: () {
               Navigator.push(
                 context,
@@ -974,6 +975,10 @@ class _ProfilePageState extends State<ProfilePage> {
         listen: false,
       );
       final claimProvider = Provider.of<ClaimProvider>(context, listen: false);
+      final notificationProvider = Provider.of<NotificationProvider>(
+        context,
+        listen: false,
+      );
 
       // Clear all data from providers including SharedPreferences
       debugPrint("=== CLEARING ALL PROVIDER DATA ===");
@@ -984,6 +989,9 @@ class _ProfilePageState extends State<ProfilePage> {
       
       // Clear cached claims data from SharedPreferences
       await claimProvider.clearCachedClaimsData();
+      
+      // Clear notification data so fresh notification is fetched on registration screen
+      notificationProvider.clearData();
       debugPrint("✅ All provider data cleared successfully");
 
       // Reset my policies shimmer state

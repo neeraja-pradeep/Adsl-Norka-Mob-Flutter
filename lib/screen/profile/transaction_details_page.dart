@@ -27,17 +27,29 @@ class _TransactionDetailsPageState extends State<TransactionDetailsPage> {
     // Parse the transaction data
     final rzpPayload =
         widget.transaction['rzp_payload'] as Map<String, dynamic>? ?? {};
-    final status = rzpPayload['status'] as String? ?? 'unknown';
+    
+    // Get payment type (federal or razorpay)
+    final paymentType = widget.transaction['payment_type'] as String? ?? '';
+    
+    // Get status - check transaction level first (for Federal Bank), then rzp_payload (for Razorpay)
+    String status = widget.transaction['status'] as String? ?? 
+                    rzpPayload['status'] as String? ?? 
+                    'unknown';
+    
     final amount = widget.transaction['amount'] as int? ?? 0;
     final createdAt = widget.transaction['created_at'] as String? ?? '';
     final transactionId = widget.transaction['payment_id']?.toString() ?? '';
+    final orderId = widget.transaction['order']?.toString() ?? '';
 
-    // Get bulk upload details if available
-    final bulkUploadDetails =
-        widget.transaction['bulk_upload_details'] as Map<String, dynamic>?;
-
-    // Check if this is a failed payment (but not bulk upload)
-    final isFailedPayment = !isBulkUpload && (rzpPayload.isEmpty || status != 'captured');
+    // Check if this is a failed payment
+    // For Federal Bank: check transaction-level status
+    // For Razorpay: check rzp_payload status
+    // But don't mark bulk uploads as failed
+    final isFailedPayment = !isBulkUpload && (
+      (paymentType == 'federal' && status != 'captured') ||
+      (paymentType == 'razorpay' && (rzpPayload.isEmpty || rzpPayload['status'] != 'captured')) ||
+      (paymentType.isEmpty && (rzpPayload.isEmpty || status != 'captured'))
+    );
 
     // Format amount to Indian currency
     final formattedAmount = '₹${(amount / 100).toStringAsFixed(2)}';
@@ -266,7 +278,26 @@ class _TransactionDetailsPageState extends State<TransactionDetailsPage> {
               const SizedBox(height: 24),
 
               // Transaction IDs Section
+              // For Federal Bank: show only Order ID (Payment ID might be missing)
+              // For Razorpay: show both Payment ID and Order ID
+              if (paymentType == 'federal') ...[
+                // Federal Bank - show Order ID only
+                if (orderId.isNotEmpty && orderId != 'null') ...[
+                  _buildTransactionIdRow('Order ID', orderId, isDarkMode),
+                ] else if (transactionId.isNotEmpty && transactionId != 'null') ...[
+                  // Fallback to transaction ID if order ID is not available
+                  _buildTransactionIdRow('Transaction ID', transactionId, isDarkMode),
+                ],
+              ] else ...[
+                // Razorpay or other - show Payment ID and Order ID
+                if (transactionId.isNotEmpty && transactionId != 'null') ...[
               _buildTransactionIdRow('Payment ID', transactionId, isDarkMode),
+                ],
+                if (orderId.isNotEmpty && orderId != 'null') ...[
+                  const SizedBox(height: 16),
+                  _buildTransactionIdRow('Order ID', orderId, isDarkMode),
+                ],
+              ],
 
               const SizedBox(height: 16),
 
@@ -399,7 +430,7 @@ class _TransactionDetailsPageState extends State<TransactionDetailsPage> {
 
   Widget _buildTransactionIdRow(String label, String value, bool isDarkMode) {
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SizedBox(
           width: 120,
@@ -410,10 +441,12 @@ class _TransactionDetailsPageState extends State<TransactionDetailsPage> {
             textColor: AppConstants.greyColor,
           ),
         ),
+        const SizedBox(width: 16),
         Expanded(
           child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
+              Flexible(
                 child: AppText(
                   text: value,
                   size: 14,
@@ -423,7 +456,8 @@ class _TransactionDetailsPageState extends State<TransactionDetailsPage> {
                       : AppConstants.blackColor,
                 ),
               ),
-              if (value != 'N/A' && value != policyNumber)
+              if (value != 'N/A' && value != policyNumber) ...[
+                const SizedBox(width: 8),
                 GestureDetector(
                   onTap: () {
                     Clipboard.setData(ClipboardData(text: value));
@@ -437,6 +471,7 @@ class _TransactionDetailsPageState extends State<TransactionDetailsPage> {
                     ),
                   ),
                 ),
+              ],
             ],
           ),
         ),

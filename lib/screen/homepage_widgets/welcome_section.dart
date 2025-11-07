@@ -101,7 +101,7 @@ class _WelcomeSectionState extends State<WelcomeSection> {
                       height: 60,
                     ),
                   ),
-                  const SizedBox(width: 16),
+                  const SizedBox(width: 10),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,

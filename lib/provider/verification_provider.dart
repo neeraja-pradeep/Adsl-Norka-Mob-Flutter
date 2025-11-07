@@ -292,35 +292,15 @@ class VerificationProvider extends ChangeNotifier {
     Map<String, dynamic> familyData,
     String nrkId,
   ) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('family_members_data', jsonEncode(familyData));
-      await prefs.setString('family_members_nrk_id', nrkId);
-      debugPrint("Family details saved to SharedPreferences for NRK ID: $nrkId");
-    } catch (e) {
-      debugPrint("Error saving family details to SharedPreferences: $e");
-    }
+    debugPrint(
+      "Family details persistence disabled; skipping local save for NRK ID: $nrkId",
+    );
   }
 
   // Retrieve family details from SharedPreferences
   Future<Map<String, dynamic>?> getFamilyDetailsFromPrefs() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final familyDataString = prefs.getString('family_members_data');
-      if (familyDataString != null && familyDataString.isNotEmpty) {
-        final familyData = Map<String, dynamic>.from(
-          jsonDecode(familyDataString),
-        );
-        debugPrint("Family details retrieved from SharedPreferences");
-        return familyData;
-      }
-      return null;
-    } catch (e) {
-      debugPrint(
-        "Error retrieving family details from SharedPreferences: $e",
-      );
-      return null;
-    }
+    debugPrint('Family details persistence disabled; skipping local load');
+    return null;
   }
 
   // Get stored NRK ID for family data
@@ -386,14 +366,8 @@ class VerificationProvider extends ChangeNotifier {
     Map<String, dynamic> paymentData,
     String nrkId,
   ) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('payment_history_data', jsonEncode(paymentData));
-      await prefs.setString('payment_history_nrk_id', nrkId);
-      debugPrint("Payment history saved to SharedPreferences for NRK ID: $nrkId");
-    } catch (e) {
-      debugPrint("Error saving payment history to SharedPreferences: $e");
-    }
+    // Intentionally left blank – no longer persisting payment history locally
+    debugPrint("Payment history persistence disabled; skipping local save for NRK ID: $nrkId");
   }
 
   // Retrieve payment history from SharedPreferences
@@ -565,11 +539,6 @@ class VerificationProvider extends ChangeNotifier {
       _familyMembersDetails = response ?? {};
       _hasFamilyMembersLoadedOnce = true;
       
-      // Save family details to SharedPreferences for offline access
-      if (_familyMembersDetails.isNotEmpty) {
-        await saveFamilyDetailsToPrefs(_familyMembersDetails, nrkId);
-      }
-      
       debugPrint('Family members details set: $_familyMembersDetails');
     } catch (e) {
       debugPrint('=== VERIFICATION PROVIDER ERROR ===');
@@ -601,19 +570,9 @@ class VerificationProvider extends ChangeNotifier {
 
   // Load family details from SharedPreferences when offline
   Future<void> _loadFamilyDetailsFromPrefs(String nrkId) async {
-    try {
-      final storedNrkId = await getStoredFamilyNrkId();
-      if (storedNrkId == nrkId) {
-        final storedFamilyData = await getFamilyDetailsFromPrefs();
-        if (storedFamilyData != null && storedFamilyData.isNotEmpty) {
-          _familyMembersDetails = storedFamilyData;
-          _hasFamilyMembersLoadedOnce = true;
-          debugPrint('Family details loaded from SharedPreferences for offline access');
-        }
-      }
-    } catch (e) {
-      debugPrint('Error loading family details from SharedPreferences: $e');
-    }
+    debugPrint(
+      'Family details offline cache disabled; skipping load for NRK ID: $nrkId',
+    );
   }
 
   // Method to load family details with offline fallback
@@ -665,21 +624,7 @@ class VerificationProvider extends ChangeNotifier {
 
   // Method to initialize family data from SharedPreferences on app start
   Future<void> initializeFamilyDataFromPrefs() async {
-    try {
-      final storedNrkId = await getStoredFamilyNrkId();
-      if (storedNrkId.isNotEmpty) {
-        final storedFamilyData = await getFamilyDetailsFromPrefs();
-        if (storedFamilyData != null && storedFamilyData.isNotEmpty) {
-          _familyMembersDetails = storedFamilyData;
-          _hasFamilyMembersLoadedOnce = true;
-          _isFamilyMembersDetailsLoading = false;
-          debugPrint('Family data initialized from SharedPreferences on app start');
-          notifyListeners();
-        }
-      }
-    } catch (e) {
-      debugPrint('Error initializing family data from SharedPreferences: $e');
-    }
+    debugPrint('Family data persistence disabled; initialize skip');
   }
 
   // Method to initialize enrollment data from SharedPreferences on app start
@@ -701,23 +646,6 @@ class VerificationProvider extends ChangeNotifier {
     }
   }
 
-  // Load payment history from SharedPreferences when offline
-  Future<void> _loadPaymentHistoryFromPrefs(String nrkId) async {
-    try {
-      final storedNrkId = await getStoredPaymentNrkId();
-      if (storedNrkId == nrkId) {
-        final storedPaymentData = await getPaymentHistoryFromPrefs();
-        if (storedPaymentData != null && storedPaymentData.isNotEmpty) {
-          _paymentHistory = storedPaymentData;
-          _hasPaymentHistoryLoadedOnce = true;
-          debugPrint('Payment history loaded from SharedPreferences for offline access');
-        }
-      }
-    } catch (e) {
-      debugPrint('Error loading payment history from SharedPreferences: $e');
-    }
-  }
-
   // Method to load payment history with offline fallback
   Future<void> getPaymentHistoryWithOfflineFallback(String nrkId) async {
     try {
@@ -725,31 +653,16 @@ class VerificationProvider extends ChangeNotifier {
       await getPaymentHistory(nrkId);
     } catch (e) {
       debugPrint('API call failed, trying to load from SharedPreferences: $e');
-      // If API fails, try to load from SharedPreferences
-      await _loadPaymentHistoryFromPrefs(nrkId);
+      // Offline fallback disabled; keep existing in-memory data
       _isPaymentHistoryLoading = false;
-      _hasPaymentHistoryLoadedOnce = true;
       notifyListeners();
     }
   }
 
   // Method to initialize payment history from SharedPreferences on app start
   Future<void> initializePaymentHistoryFromPrefs() async {
-    try {
-      final storedNrkId = await getStoredPaymentNrkId();
-      if (storedNrkId.isNotEmpty) {
-        final storedPaymentData = await getPaymentHistoryFromPrefs();
-        if (storedPaymentData != null && storedPaymentData.isNotEmpty) {
-          _paymentHistory = storedPaymentData;
-          _hasPaymentHistoryLoadedOnce = true;
-          _isPaymentHistoryLoading = false;
-          debugPrint('Payment history initialized from SharedPreferences on app start');
-          notifyListeners();
-        }
-      }
-    } catch (e) {
-      debugPrint('Error initializing payment history from SharedPreferences: $e');
-    }
+    // No-op: payment history caching disabled
+    debugPrint('Payment history persistence disabled; initialize skip');
   }
 
   // Load dates details from SharedPreferences when offline
@@ -1348,18 +1261,9 @@ class VerificationProvider extends ChangeNotifier {
       debugPrint('Response: $response');
       _paymentHistory = response ?? {};
       _hasPaymentHistoryLoadedOnce = true;
-      
-      // Save payment history to SharedPreferences for offline access
-      if (_paymentHistory.isNotEmpty) {
-        await savePaymentHistoryToPrefs(_paymentHistory, nrkId);
-      }
-      
       debugPrint('=== PAYMENT HISTORY LOADED ONCE SET TO TRUE ===');
     } catch (e) {
       debugPrint('Error fetching payment history: $e');
-      
-      // Try to load from SharedPreferences when API fails
-      await _loadPaymentHistoryFromPrefs(nrkId);
     } finally {
       _isPaymentHistoryLoading = false;
       debugPrint('=== PAYMENT HISTORY LOADING SET TO FALSE ===');

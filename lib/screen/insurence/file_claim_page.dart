@@ -317,15 +317,21 @@ class _FileClaimPageState extends State<FileClaimPage> {
     DateTime initialDate;
     
     if (type == 'admission') {
-      // For admission: allow all dates but validate after selection
+      // For admission: allow all past dates up to today only
+      DateTime today = DateTime.now();
       firstDate = DateTime(2020);
-      lastDate = DateTime.now();
-      initialDate = DateTime.now();
+      lastDate = DateTime(today.year, today.month, today.day);
+      initialDate = DateTime(today.year, today.month, today.day);
     } else if (type == 'discharge') {
-      // For discharge: from November 1, 2025 to 1 year in future
-      firstDate = DateTime(2025, 11, 1);
+      // For discharge: set firstDate based on admission date or default to 2020
+      if (admissionDate != null) {
+        firstDate = admissionDate!;
+        initialDate = admissionDate!;
+      } else {
+        firstDate = DateTime(2020);
+        initialDate = DateTime.now();
+      }
       lastDate = DateTime.now().add(const Duration(days: 365));
-      initialDate = DateTime.now();
     } else {
       // For other dates: default behavior
       firstDate = DateTime(2020);
@@ -359,15 +365,9 @@ class _FileClaimPageState extends State<FileClaimPage> {
         if (type == 'incident') {
           selectedDate = picked;
         } else if (type == 'admission') {
-          // Validate admission date - must be on or after November 1, 2025 and not in future
-          DateTime minAdmissionDate = DateTime(2025, 11, 1); // November 1, 2025
+          // Validate admission date - cannot be in future
           DateTime today = DateTime.now();
           DateTime todayOnly = DateTime(today.year, today.month, today.day);
-          
-          if (picked.isBefore(minAdmissionDate)) {
-            ToastMessage.failedToast('Admission date must be on or after 01/11/2025');
-            return;
-          }
           
           if (picked.isAfter(todayOnly)) {
             ToastMessage.failedToast('Admission date cannot be in the future');
@@ -1050,6 +1050,11 @@ class _FileClaimPageState extends State<FileClaimPage> {
           ToastMessage.failedToast('Please select a main hospitalization claim');
           return;
         }
+
+        if (showHospitalMismatchWarning) {
+          ToastMessage.failedToast('Selected hospital must match the main hospitalization claim');
+          return;
+        }
       }
       
       // Validate claim amount
@@ -1090,15 +1095,9 @@ class _FileClaimPageState extends State<FileClaimPage> {
         return;
       }
       
-      // Validate admission date - must be on or after November 1, 2025 and not in future
-      DateTime minAdmissionDate = DateTime(2025, 11, 1); // November 1, 2025
+      // Validate admission date - cannot be in future
       DateTime today = DateTime.now();
       DateTime todayOnly = DateTime(today.year, today.month, today.day);
-      
-      if (admissionDate!.isBefore(minAdmissionDate)) {
-        ToastMessage.failedToast('Admission date must be on or after November 1, 2025');
-        return;
-      }
       
       if (admissionDate!.isAfter(todayOnly)) {
         ToastMessage.failedToast('Admission date cannot be in the future');
@@ -1448,7 +1447,7 @@ class _FileClaimPageState extends State<FileClaimPage> {
         // Pre Post Hospitalization body
         String mainClaimId = _getMainClaimIdFromSelection();
         requestBody = {
-          "policyNo": "760100/NORKA ROOTS/BASE",
+          "policyNo": "763300/25-26/NORKACARE/001",
           "dependentUniqueId": enrollmentNumber,
           "typeOfClaim": "Pre-post hospitalization",
           "claimSubType": "Hospitalization",
@@ -1487,7 +1486,7 @@ class _FileClaimPageState extends State<FileClaimPage> {
         debugPrint('Claim Sub Type: $claimSubType');
             
         requestBody = {
-          "policyNo": "760100/NORKA ROOTS/BASE",
+          "policyNo": "763300/25-26/NORKACARE/001",
           "dependentUniqueId": enrollmentNumber,
           "typeOfClaim": typeOfClaim,
           "claimSubType": claimSubType,
@@ -3268,38 +3267,38 @@ class _FileClaimPageState extends State<FileClaimPage> {
               ),
               
               // Info message for Daycare claims
-              if (selectedClaimType == 'Daycare') ...[
-                const SizedBox(height: 8),
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: Colors.blue.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: Colors.blue.withOpacity(0.3),
-                      width: 1,
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.info_outline,
-                        color: Colors.blue,
-                        size: 18,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: AppText(
-                          text: 'For Day Care claims, discharge date is automatically set to same as admission date',
-                          size: 12,
-                          weight: FontWeight.w500,
-                          textColor: Colors.blue,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+              // if (selectedClaimType == 'Daycare') ...[
+              //   const SizedBox(height: 8),
+              //   Container(
+              //     padding: const EdgeInsets.all(10),
+              //     decoration: BoxDecoration(
+              //       color: Colors.blue.withOpacity(0.1),
+              //       borderRadius: BorderRadius.circular(8),
+              //       border: Border.all(
+              //         color: Colors.blue.withOpacity(0.3),
+              //         width: 1,
+              //       ),
+              //     ),
+              //     child: Row(
+              //       children: [
+              //         Icon(
+              //           Icons.info_outline,
+              //           color: Colors.blue,
+              //           size: 18,
+              //         ),
+              //         const SizedBox(width: 8),
+              //         Expanded(
+              //           child: AppText(
+              //             text: 'For Day Care claims, discharge date is automatically set to same as admission date',
+              //             size: 12,
+              //             weight: FontWeight.w500,
+              //             textColor: Colors.blue,
+              //           ),
+              //         ),
+              //       ],
+              //     ),
+              //   ),
+              // ],
               
               const SizedBox(height: 12),
               

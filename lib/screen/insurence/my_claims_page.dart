@@ -193,22 +193,43 @@ class _MyClaimsPageState extends State<MyClaimsPage> {
           textColor: AppConstants.whiteColor,
         ),
         centerTitle: true,
-        actions: [
-          IconButton(
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const FileClaimPage(),
-                ),
-              ).then((_) {
-                // Refresh claims data when returning from file claim page
-                _fetchClaimData();
-              });
-            },
-            icon: const Icon(Icons.add, color: AppConstants.whiteColor, size: 30),
-          ),
-        ],
+        //  actions: [
+        //   IconButton(
+        //     onPressed: () {
+        //       Navigator.push(
+        //         context,
+        //         MaterialPageRoute(
+        //           builder: (context) => const FileClaimPage(),
+        //         ),
+        //       ).then((_) {
+        //         // Refresh claims data when returning from file claim page
+        //         _fetchClaimData();
+        //       });
+        //     },
+        //     icon: const Icon(Icons.add, color: AppConstants.whiteColor, size: 30),
+        //   ),
+        // ],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const FileClaimPage(),
+            ),
+          ).then((_) {
+            // Refresh claims data when returning from file claim page
+            _fetchClaimData();
+          });
+        },
+        backgroundColor: AppConstants.primaryColor,
+        icon: const Icon(Icons.add, color: AppConstants.whiteColor),
+        label: const AppText(
+          text: 'File a Claim',
+          size: 16,
+          weight: FontWeight.w600,
+          textColor: AppConstants.whiteColor,
+        ),
       ),
       body: Consumer<ClaimProvider>(
         builder: (context, claimProvider, child) {
@@ -300,44 +321,44 @@ class _MyClaimsPageState extends State<MyClaimsPage> {
       margin: const EdgeInsets.all(20),
       child: Column(
         children: [
-          TextField(
-            controller: searchController,
-            onChanged: (value) => setState(() {}),
-            cursorColor: AppConstants.primaryColor,
-            style: TextStyle(
-              color: isDarkMode
-                  ? AppConstants.whiteColor
-                  : AppConstants.blackColor,
-            ),
-            decoration: InputDecoration(
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              hintText: 'Search claims...',
-              hintStyle: TextStyle(color: AppConstants.greyColor),
-              prefixIcon: Icon(Icons.search, color: AppConstants.greyColor),
-              border: OutlineInputBorder(
+          InkWell(
+            onTap: () {
+              _downloadReimbursementForm();
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: AppConstants.secondaryColor,
                 borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(
-                  color: isDarkMode
-                      ? Colors.white.withOpacity(0.2)
-                      : AppConstants.greyColor.withOpacity(0.3),
-                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: isDarkMode
+                        ? Colors.black.withOpacity(0.3)
+                        : Colors.grey.withOpacity(0.3),
+                    spreadRadius: 1,
+                    blurRadius: 5,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
               ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(
-                  color: isDarkMode
-                      ? Colors.white.withOpacity(0.2)
-                      : AppConstants.greyColor.withOpacity(0.3),
-                ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.download,
+                    color: AppConstants.blackColor,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 5),
+                  Expanded(
+                    child: AppText(
+                      text: 'Download Reimbursement Form',
+                      size: 14,
+                      weight: FontWeight.w500,
+                      textColor: Colors.black,
+                    ),
+                  ),
+                ],
               ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: AppConstants.primaryColor),
-              ),
-              filled: true,
-              fillColor: isDarkMode
-                  ? AppConstants.darkBackgroundColor
-                  : AppConstants.whiteBackgroundColor,
             ),
           ),
           const SizedBox(height: 16),
@@ -1780,6 +1801,28 @@ class _MyClaimsPageState extends State<MyClaimsPage> {
     } catch (e) {
       debugPrint('❌ Error downloading shortfall letter: $e');
       ToastMessage.failedToast('Failed to download document');
+    }
+  }
+
+  // Download reimbursement form
+  Future<void> _downloadReimbursementForm() async {
+    try {
+      const String reimbursementFormUrl = 'https://vidalfestorage.blob.core.windows.net/vidal-homepage/vidalhealthtpa/vidal%20forms/Reimbursement_Claim_Form%20-%20Insured.pdf';
+      
+      final Uri url = Uri.parse(reimbursementFormUrl);
+      
+      if (await canLaunchUrl(url)) {
+        await launchUrl(
+          url,
+          mode: LaunchMode.externalApplication,
+        );
+        ToastMessage.successToast('Opening reimbursement form...');
+      } else {
+        ToastMessage.failedToast('Could not open download link');
+      }
+    } catch (e) {
+      debugPrint('❌ Error downloading reimbursement form: $e');
+      ToastMessage.failedToast('Failed to download reimbursement form');
     }
   }
 

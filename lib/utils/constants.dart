@@ -22,4 +22,5 @@ class AppConstants {
 
   // App images
   static const String appLogo = 'assets/logo/applogoss.png';
+  static const String notificationIcon = 'assets/logo/notification.png';
 }

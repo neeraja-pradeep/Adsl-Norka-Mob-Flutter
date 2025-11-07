@@ -4,14 +4,22 @@ import 'package:norkacare_app/provider/verification_provider.dart';
 import 'package:norkacare_app/provider/hospital_provider.dart';
 import 'package:norkacare_app/provider/otp_verification_provider.dart';
 import 'package:norkacare_app/provider/claim_provider.dart';
+import 'package:norkacare_app/provider/notification_provider.dart';
 import 'package:norkacare_app/screen/auth/splash_screen.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'services/razorpay_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Lock orientation to portrait only
+  await SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+    DeviceOrientation.portraitDown,
+  ]);
 
   // Initialize Razorpay
   RazorpayService.initialize();
@@ -65,6 +73,7 @@ class _MyAppState extends State<MyApp> {
             ChangeNotifierProvider(create: (_) => HospitalProvider()),
             ChangeNotifierProvider(create: (_) => OtpVerificationProvider()),
             ChangeNotifierProvider(create: (_) => ClaimProvider()),
+            ChangeNotifierProvider(create: (_) => NotificationProvider()),
           ],
           child: MaterialApp(
             debugShowCheckedModeBanner: false,

@@ -521,6 +521,7 @@ import 'package:norkacare_app/provider/otp_verification_provider.dart';
 import 'package:norkacare_app/provider/auth_provider.dart';
 import 'package:norkacare_app/widgets/toast_message.dart';
 import 'package:norkacare_app/services/vidal_data_mapper.dart';
+import 'package:norkacare_app/screen/auth/registration_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -674,19 +675,64 @@ class _PaymentSuccessPageState extends State<PaymentSuccessPage>
                   children: [
                     // Show verifying state or Enroll Now button
                     if (!_isEnrollmentComplete)
-                      CustomButton(
-                        text: _isVerifying
-                            ? 'Verifying...'
-                            : _isEnrolling
-                                ? 'Enrolling...'
-                                : 'Enroll Now',
-                        onPressed: (_isVerifying || _isEnrolling)
-                            ? () {}
-                            : _handleEnrollNow,
-                        color: AppConstants.primaryColor,
-                        textColor: AppConstants.whiteColor,
-                        height: 50,
-                      ),
+                      _isEnrolling
+                          ? Container(
+                              width: double.infinity,
+                              height: 50,
+                              decoration: BoxDecoration(
+                                color: AppConstants.primaryColor,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      valueColor: AlwaysStoppedAnimation<Color>(
+                                        AppConstants.whiteColor,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  AppText(
+                                    text: 'Enrolling...',
+                                    size: 16,
+                                    weight: FontWeight.w600,
+                                    textColor: AppConstants.whiteColor,
+                                  ),
+                                ],
+                              ),
+                            )
+                          : Container(
+                              width: double.infinity,
+                              height: 50,
+                              decoration: BoxDecoration(
+                                color: AppConstants.primaryColor,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  onTap: _isVerifying
+                                      ? () {}
+                                      : _handleEnrollNow,
+                                  borderRadius: BorderRadius.circular(10),
+                                  child: Center(
+                                    child: AppText(
+                                      text: _isVerifying
+                                          ? 'Verifying...'
+                                          : 'Enroll Now',
+                                      size: 16,
+                                      weight: FontWeight.w600,
+                                      textColor: AppConstants.whiteColor,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
                     
                     // Spacer for proper layout
                     
@@ -778,6 +824,111 @@ class _PaymentSuccessPageState extends State<PaymentSuccessPage>
         context,
         listen: false,
       );
+      final norkaProvider = Provider.of<NorkaProvider>(context, listen: false);
+      final otpVerificationProvider = Provider.of<OtpVerificationProvider>(
+        context,
+        listen: false,
+      );
+
+      // Get NRK ID
+      String nrkId = widget.nrkId ?? '';
+      
+      // Try to get from verified customer data first, then fallback to NORKA provider
+      if (nrkId.isEmpty) {
+        final verifiedCustomerData = otpVerificationProvider
+            .getVerifiedCustomerData();
+        if (verifiedCustomerData != null) {
+          // Try different possible field names for NRK ID
+          nrkId = verifiedCustomerData['norka_id'] ?? 
+                  verifiedCustomerData['nrk_id'] ?? 
+                  verifiedCustomerData['norka_id_no'] ?? 
+                  verifiedCustomerData['nrk_id_no'] ?? '';
+        }
+        
+        // If still empty, try from NORKA provider
+        if (nrkId.isEmpty) {
+          nrkId = norkaProvider.norkaId;
+        }
+      }
+
+      // Check payment history for any captured payment
+      debugPrint('=== CHECKING PAYMENT HISTORY BEFORE ENROLLMENT ===');
+      try {
+        // Check payment history
+        await verificationProvider.getPaymentHistory(nrkId);
+        
+        // Check if there's a captured payment
+        final paymentHistory = verificationProvider.paymentHistory;
+        debugPrint("Payment History Response: $paymentHistory");
+        
+        bool hasCapturedPayment = false;
+        
+        // Check both 'payments' and 'data' fields for payment list
+        List? payments;
+        if (paymentHistory.isNotEmpty) {
+          if (paymentHistory['payments'] != null) {
+            payments = paymentHistory['payments'] as List;
+          } else if (paymentHistory['data'] != null) {
+            payments = paymentHistory['data'] as List;
+          }
+        }
+        
+        if (payments != null && payments.isNotEmpty) {
+          debugPrint("Total Payments: ${payments.length}");
+          
+          for (var payment in payments) {
+            // Check status in rzp_payload first, then direct status field
+            String? status;
+            if (payment['rzp_payload'] != null && 
+                payment['rzp_payload']['status'] != null) {
+              status = payment['rzp_payload']['status'];
+            } else if (payment['status'] != null) {
+              status = payment['status'];
+            }
+            
+            debugPrint("Payment Status: $status");
+            if (status == 'captured') {
+              hasCapturedPayment = true;
+              debugPrint("✅ Found captured payment!");
+              break;
+            }
+          }
+        }
+        
+        if (!hasCapturedPayment) {
+          // No captured payment found, navigate to registration page
+          debugPrint("❌ No captured payment found - navigating to registration page");
+          ToastMessage.failedToast('Payment Not Completed.');
+          if (mounted) {
+            setState(() {
+              _isEnrolling = false;
+            });
+            Navigator.pushAndRemoveUntil(
+              context,
+              MaterialPageRoute(builder: (context) => const RegisterScreen()),
+              (route) => false,
+            );
+          }
+          return;
+        } else {
+          debugPrint("✅ Captured payment found - proceeding with enrollment");
+        }
+      } catch (e) {
+        // If payment history check fails, navigate to registration page
+        debugPrint("Error checking payment history: $e");
+        ToastMessage.failedToast('Unable to verify payment. Please try again.');
+        if (mounted) {
+          setState(() {
+            _isEnrolling = false;
+          });
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(builder: (context) => const RegisterScreen()),
+            (route) => false,
+          );
+        }
+        return;
+      }
 
       // Step 1: Generate Request ID first
       debugPrint('=== STEP 1: GENERATING REQUEST ID ===');

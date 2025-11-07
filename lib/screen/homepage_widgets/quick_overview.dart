@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:norkacare_app/provider/verification_provider.dart';
 import 'package:norkacare_app/provider/norka_provider.dart';
 import 'package:norkacare_app/provider/claim_provider.dart';
+import 'package:norkacare_app/provider/notification_provider.dart';
 
 class QuickOverview extends StatefulWidget {
   final Map<String, dynamic> customerInsuranceData;
@@ -20,25 +21,88 @@ class _QuickOverviewState extends State<QuickOverview> {
   // No need for complex loading logic here
 
   @override
+  void initState() {
+    super.initState();
+    // Fetch notification when widget loads
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _fetchNotification();
+    });
+  }
+
+  void _fetchNotification() async {
+    final notificationProvider = Provider.of<NotificationProvider>(
+      context,
+      listen: false,
+    );
+    await notificationProvider.fetchNotification();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-    return Consumer3<VerificationProvider, NorkaProvider, ClaimProvider>(
-      builder: (context, verificationProvider, norkaProvider, claimProvider, child) {
+    return Consumer4<VerificationProvider, NorkaProvider, ClaimProvider, NotificationProvider>(
+      builder: (context, verificationProvider, norkaProvider, claimProvider, notificationProvider, child) {
         // Payment history is preloaded during shimmer phase, no need for build-time loading
         return Container(
           margin: const EdgeInsets.symmetric(horizontal: 20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              AppText(
-                text: 'Quick Overview',
-                size: 18,
-                weight: FontWeight.bold,
-                textColor: isDarkMode
-                    ? AppConstants.whiteColor
-                    : AppConstants.blackColor,
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  AppText(
+                    text: 'Quick Overview',
+                    size: 18,
+                    weight: FontWeight.bold,
+                    textColor: isDarkMode
+                        ? AppConstants.whiteColor
+                        : AppConstants.blackColor,
+                  ),
+                  IconButton(
+                    icon: Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        Icon(
+                          Icons.notifications_outlined,
+                          color: isDarkMode
+                              ? AppConstants.whiteColor
+                              : AppConstants.primaryColor,
+                          size: 26,
+                        ),
+                        // Red dot indicator when notification is not empty
+                        if (notificationProvider.notificationMessage.trim().isNotEmpty)
+                          Positioned(
+                            right: 0,
+                            top: 0,
+                            child: Container(
+                              width: 10,
+                              height: 10,
+                              decoration: BoxDecoration(
+                                color: Colors.red,
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: isDarkMode
+                                      ? AppConstants.darkBackgroundColor
+                                      : Colors.white,
+                                  width: 1.5,
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                    onPressed: () {
+                      _showNotificationDialog(
+                        context,
+                        isDarkMode,
+                        notificationProvider.notificationMessage,
+                      );
+                    },
+                  ),
+                ],
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 8),
               Row(
                 children: [
                   Expanded(
@@ -90,6 +154,18 @@ class _QuickOverviewState extends State<QuickOverview> {
               ),
             ],
           ),
+        );
+      },
+    );
+  }
+
+  void _showNotificationDialog(BuildContext context, bool isDarkMode, String message) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return NotificationDialog(
+          isDarkMode: isDarkMode,
+          message: message,
         );
       },
     );
@@ -260,6 +336,10 @@ class _QuickOverviewState extends State<QuickOverview> {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     return Container(
       padding: const EdgeInsets.all(16),
+      constraints: const BoxConstraints(
+        minHeight: 140,
+        maxHeight: 140,
+      ),
       decoration: BoxDecoration(
         color: isDarkMode
             ? AppConstants.boxBlackColor
@@ -283,6 +363,8 @@ class _QuickOverviewState extends State<QuickOverview> {
         ],
       ),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Container(
             width: 40,
@@ -294,13 +376,17 @@ class _QuickOverviewState extends State<QuickOverview> {
             child: Icon(icon, color: color, size: 20),
           ),
           const SizedBox(height: 12),
-          AppText(
-            text: value,
-            size: 18,
-            weight: FontWeight.bold,
-            textColor: isDarkMode
-                ? AppConstants.whiteColor
-                : AppConstants.blackColor,
+          Flexible(
+            child: AppText(
+              text: value,
+              size: 16,
+              weight: FontWeight.bold,
+              textColor: isDarkMode
+                  ? AppConstants.whiteColor
+                  : AppConstants.blackColor,
+              textAlign: TextAlign.center,
+              maxLines: 1,
+            ),
           ),
           const SizedBox(height: 4),
           AppText(
@@ -310,8 +396,210 @@ class _QuickOverviewState extends State<QuickOverview> {
             textColor: isDarkMode
                 ? AppConstants.greyColor.withOpacity(0.8)
                 : AppConstants.greyColor,
+            textAlign: TextAlign.center,
+            maxLines: 2,
           ),
         ],
+      ),
+    );
+  }
+}
+
+// Notification Dialog Widget
+class NotificationDialog extends StatefulWidget {
+  final bool isDarkMode;
+  final String message;
+
+  const NotificationDialog({
+    super.key,
+    required this.isDarkMode,
+    required this.message,
+  });
+
+  @override
+  State<NotificationDialog> createState() => _NotificationDialogState();
+}
+
+class _NotificationDialogState extends State<NotificationDialog> {
+  bool _isExpanded = false;
+
+  /// Check if the notification text is long enough to need expansion
+  bool _shouldShowExpandButton() {
+    // Count newlines in the message
+    final newlineCount = '\n'.allMatches(widget.message).length;
+    
+    // Estimate characters per line (approximately 40-50 chars per line at font size 14)
+    // With line height 1.5 and dialog width, roughly 45 characters fit per line
+    const int approximateCharsPerLine = 45;
+    const int maxLinesBeforeExpand = 5;
+    
+    // Show button if:
+    // 1. There are 5 or more newlines (meaning 6+ lines)
+    // 2. OR the total length suggests it would exceed 5 lines
+    return newlineCount >= maxLinesBeforeExpand || 
+           widget.message.length > (approximateCharsPerLine * maxLinesBeforeExpand);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
+      backgroundColor: widget.isDarkMode
+          ? AppConstants.darkBackgroundColor
+          : Colors.white,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: widget.isDarkMode
+              ? AppConstants.darkBackgroundColor
+              : Colors.white,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppConstants.primaryColor.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    Icons.notifications_outlined,
+                    color: AppConstants.primaryColor,
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: AppText(
+                    text: 'Notifications',
+                    size: 20,
+                    weight: FontWeight.bold,
+                    textColor: widget.isDarkMode
+                        ? AppConstants.whiteColor
+                        : AppConstants.blackColor,
+                  ),
+                ),
+                IconButton(
+                  icon: Icon(
+                    Icons.close,
+                    color: widget.isDarkMode
+                        ? AppConstants.whiteColor
+                        : AppConstants.blackColor,
+                  ),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+              ],
+            ),
+            
+            // Notification Content - Only show if message is not empty
+            if (widget.message.isNotEmpty) ...[
+              const SizedBox(height: 20),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: AppConstants.primaryColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: AppConstants.primaryColor.withOpacity(0.3),
+                    width: 1.5,
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Notification text
+                    Text.rich(
+                      TextSpan(
+                        text: widget.message,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.normal,
+                          color: widget.isDarkMode
+                              ? AppConstants.greyColor
+                              : Colors.grey[700]!,
+                          height: 1.5,
+                        ),
+                      ),
+                      textAlign: TextAlign.start,
+                      maxLines: _isExpanded ? null : 5,
+                      overflow: _isExpanded ? TextOverflow.visible : TextOverflow.ellipsis,
+                    ),
+                    
+                    // Show More/Less button - only show if text exceeds 5 lines
+                    if (_shouldShowExpandButton())
+                      ...[
+                        const SizedBox(height: 8),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: GestureDetector(
+                            onTap: () {
+                              setState(() {
+                                _isExpanded = !_isExpanded;
+                              });
+                            },
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  _isExpanded ? 'Show Less' : 'Show More',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppConstants.primaryColor,
+                                    height: 1.2,
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                Icon(
+                                  _isExpanded
+                                      ? Icons.keyboard_arrow_up
+                                      : Icons.keyboard_arrow_down,
+                                  color: AppConstants.primaryColor,
+                                  size: 18,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                  ],
+                ),
+              ),
+            ],
+            
+            // Show message when no notifications
+            if (widget.message.isEmpty) ...[
+              const SizedBox(height: 20),
+              Center(
+                child: Column(
+                  children: [
+                    Icon(
+                      Icons.notifications_off_outlined,
+                      size: 60,
+                      color: AppConstants.greyColor.withOpacity(0.5),
+                    ),
+                    const SizedBox(height: 16),
+                    AppText(
+                      text: 'No notifications',
+                      size: 16,
+                      weight: FontWeight.w500,
+                      textColor: AppConstants.greyColor,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }

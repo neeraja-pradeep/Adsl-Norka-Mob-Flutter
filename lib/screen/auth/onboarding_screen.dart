@@ -8,6 +8,7 @@ import '../../utils/constants.dart';
 import '../../widgets/app_text.dart';
 import 'package:provider/provider.dart';
 import '../../provider/auth_provider.dart';
+import '../../provider/notification_provider.dart';
 
 enum UserType { employee, posp, customer }
 
@@ -70,6 +71,19 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     );
     _fadeController.forward();
     _startAutoPlay();
+    
+    // Preload notification data in background
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _preloadNotification();
+    });
+  }
+
+  void _preloadNotification() async {
+    final notificationProvider = Provider.of<NotificationProvider>(
+      context,
+      listen: false,
+    );
+    await notificationProvider.fetchNotification();
   }
 
   @override

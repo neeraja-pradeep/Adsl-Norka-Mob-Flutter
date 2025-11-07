@@ -193,13 +193,27 @@ class _PaymentDetailsPageState extends State<PaymentDetailsPage> {
     // Parse the transaction data from API response
     final rzpPayload =
         transaction['rzp_payload'] as Map<String, dynamic>? ?? {};
-    final status = rzpPayload['status'] as String? ?? 'unknown';
+    
+    // Get payment type (federal or razorpay)
+    final paymentType = transaction['payment_type'] as String? ?? '';
+    
+    // Get status - check transaction level first (for Federal Bank), then rzp_payload (for Razorpay)
+    String status = transaction['status'] as String? ?? 
+                    rzpPayload['status'] as String? ?? 
+                    'unknown';
+    
     final amount = transaction['amount'] as int? ?? 0;
     final createdAt = transaction['created_at'] as String? ?? '';
 
-    // Check if this is a failed payment (no rzp_payload or status is not captured)
+    // Check if this is a failed payment
+    // For Federal Bank: check transaction-level status
+    // For Razorpay: check rzp_payload status
     // But don't mark bulk uploads as failed
-    final isFailedPayment = !isBulkUpload && (rzpPayload.isEmpty || status != 'captured');
+    final isFailedPayment = !isBulkUpload && (
+      (paymentType == 'federal' && status != 'captured') ||
+      (paymentType == 'razorpay' && (rzpPayload.isEmpty || rzpPayload['status'] != 'captured')) ||
+      (paymentType.isEmpty && (rzpPayload.isEmpty || status != 'captured'))
+    );
 
     // Format amount to Indian currency
     final formattedAmount = '₹${(amount / 100).toStringAsFixed(0)}';
@@ -235,12 +249,14 @@ class _PaymentDetailsPageState extends State<PaymentDetailsPage> {
       statusText = 'Successful';
     }
     // Handle failed payments
-    else if (isFailedPayment) {
+    else if (isFailedPayment || status == 'failed') {
       statusColor = AppConstants.redColor;
       statusText = 'Failed';
     } else {
-      switch (status) {
+      switch (status.toLowerCase()) {
         case 'captured':
+        case 'success':
+        case 'successful':
           statusColor = AppConstants.greenColor;
           statusText = 'Successful';
           break;
@@ -316,6 +332,8 @@ class _PaymentDetailsPageState extends State<PaymentDetailsPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  Row(
+                children: [
                   AppText(
                     text: 'Enrollment Fee',
                     size: 16,
@@ -323,6 +341,39 @@ class _PaymentDetailsPageState extends State<PaymentDetailsPage> {
                     textColor: isDarkMode
                         ? AppConstants.whiteColor
                         : AppConstants.blackColor,
+                      ),
+                      if (paymentType == 'federal') ...[
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: AppConstants.primaryColor.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: AppText(
+                            text: 'Federal',
+                            size: 10,
+                            weight: FontWeight.w500,
+                            textColor: AppConstants.primaryColor,
+                          ),
+                        ),
+                      ] else if (paymentType == 'razorpay') ...[
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: AppConstants.primaryColor.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: AppText(
+                            text: 'HDFC',
+                            size: 10,
+                            weight: FontWeight.w500,
+                            textColor: AppConstants.primaryColor,
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                   const SizedBox(height: 2),
                   AppText(

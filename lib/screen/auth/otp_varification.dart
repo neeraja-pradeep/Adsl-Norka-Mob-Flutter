@@ -518,8 +518,9 @@ class _OtpVarificationState extends State<OtpVarification>
               ),
               const SizedBox(height: 32),
 
-              // OTP Input Field with Pinput
-              Pinput(
+              // OTP Input Field with Pinput - Centered
+              Center(
+                child: Pinput(
                 controller: _pinController,
                 focusNode: _pinFocusNode,
                 length: 6,
@@ -618,6 +619,7 @@ class _OtpVarificationState extends State<OtpVarification>
                 inputFormatters: [
                   FilteringTextInputFormatter.digitsOnly,
                 ],
+                ),
               ),
               const SizedBox(height: 32),
 
@@ -731,14 +733,9 @@ class _OtpVarificationState extends State<OtpVarification>
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(
-                          Icons.edit,
-                          size: 16,
-                          color: AppConstants.primaryColor,
-                        ),
-                        const SizedBox(width: 1),
+               
                         AppText(
-                          text: "Don't receive OTP? Update your profile",
+                          text: "Update your phone number",
                           size: 14,
                           weight: FontWeight.w500,
                           textColor: AppConstants.primaryColor,
